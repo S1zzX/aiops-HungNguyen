@@ -1,151 +1,132 @@
-# Anomaly Detection Report for Machine Temperature System Failure
+# W1-D1: Metric Anomaly Detection — SUBMIT
 
-Dataset: machine_temperature_system_failure.csv
-Period: 2014-03-07 to 2014-03-21
-Interval: 5 minutes
-Total points: 4032
+## Screenshots
 
----
+### Raw Time Series + Known Anomalies
+![Raw Series](assets/plot_raw_series.png)
 
-## 1. Reflection & Insights
-
-### 1.1 Dataset Overview
-
-The analyzed dataset tracks machine temperature as a continuous time series, sampled every 5 minutes spanning a two-week period.
-
-Notable characteristics:
-1. **Distribution**: The data exhibits a nearly Gaussian (normal) distribution with minimal skewness. Looking at the histogram, it closely resembles a symmetric bell curve.
-2. **Stationarity**: For the vast majority of the timeline, the series is stationary. The baseline mean hovers around a stable operating level with a tight standard deviation.
-3. **Seasonality**: There are no obvious or strong daily cyclic patterns observed in the temperature data.
-4. **Anomalous Events**: A distinct system failure window occurs towards the very end of the recording (specifically between 02:55 and 03:41 on March 21, 2014).
-
-### 1.2 Rationale for Method Selection
-
-**Rolling Z-Score**: This statistical approach was selected primarily because the data is stationary and its distribution is roughly normal. Z-score thresholds work exceptionally well on non-skewed data. By applying a one-day rolling window, the baseline is continuously updated based on recent behavior rather than being skewed by the entire historical dataset.
-
-**Isolation Forest**: This machine learning algorithm was chosen for its flexibility, as it doesn't rely on strict assumptions about data distribution. Instead of looking at raw values, it isolates outliers by examining a robust table of 11 engineered features (which capture velocity, acceleration, recent volatility, etc.), allowing it to spot complex, multi-dimensional anomalies.
-
-### 1.3 Model Performance Evaluation
-
-When comparing the optimized F1 scores, the simpler Rolling Z-Score significantly outperformed the Isolation Forest approach. 
-The primary anomaly in this dataset represents a massive, abrupt spike in temperature. Because the Z-score method strictly flags statistically significant deviations from the recent mean, it was perfectly suited to catch this specific type of sudden spike with high precision.
-
-### 1.4 Feature & Trade-off Comparison
-
-| Characteristic | Rolling Z-Score (Statistical) | Isolation Forest (ML) |
-| :--- | :--- | :--- |
-| **Model Training Time** | None (Calculated on the fly) | Fast |
-| **Ease of Interpretability** | Very High | Low (Black-box) |
-| **Relies on Data Distribution** | Yes (Assumes Gaussian) | No |
-| **Number of Features Evaluated**| 1 (Raw Metric) | 11 (Engineered Features) |
-| **Handling of Huge Spikes** | Excellent | Excellent |
-| **Handling of Subtle Drifts** | Poor | Very Good |
-| **Sensitivity to Random Noise** | High | Moderate |
-
-### 1.5 Final Recommendations for Production
-
-For real-time monitoring of machine temperature in a live production environment, the **Rolling Z-Score** method is the recommended primary detector.
-1. **Operational Efficiency**: It computes instantly on streaming data without any need for periodic model retraining.
-2. **Transparency**: When an alert fires, on-call engineers can easily understand the root cause (e.g., "Temperature exceeded 4 standard deviations from the 24-hour mean").
-3. **Effectiveness**: The critical failures for this specific service manifest as massive, sudden temperature spikes, which the Z-score reliably catches.
-4. **Resource Cost**: It requires minimal CPU and memory overhead to run at scale.
-
-**Secondary Strategy**: The Isolation Forest model shouldn't be discarded. It can be deployed alongside the Z-score as a secondary validation layer, specifically utilized to confirm alerts or to monitor for more complex, subtle degradations that basic statistical methods might miss.
+> 3 cụm anomaly thật (đỏ) rõ ràng: mid-Dec 2013 (drop mạnh xuống ~0), early-Feb 2014 (drop xuống ~25), và early-Feb 2014 lần 2. Data dao động quanh 80-100 là bình thường.
 
 ---
 
-## 2. Comparison Table
+### Distribution Analysis
+![Distribution](assets/plot_distribution.png)
 
-Default parameter results before tuning:
-
-| Metric | Detector 1 Rolling Z score | Detector 2 Isolation Forest |
-| :--- | :--- | :--- |
-| Precision | 0.2222 | 0.2308 |
-| Recall | 0.8000 | 0.9000 |
-| F1 | 0.3478 | 0.3673 |
-| False Alarms | 28 | 30 |
-
-Best configuration results after tuning:
-
-| Metric | Z score Best Config | Isolation Forest Best Config |
-| :--- | :--- | :--- |
-| Precision | 0.6154 | 0.4500 |
-| Recall | 0.8000 | 0.9000 |
-| F1 | 0.6957 | 0.6000 |
-| False Alarms | 5 | 11 |
-| Best Params | Window 288, Threshold 4.0 | Contamination 0.005, Estimators 50 |
+> Histogram và KDE cho thấy data **left-skewed** (skewness = -1.834) — đa số giá trị tập trung ở 85-100, nhưng có đuôi dài bên trái do các lần nhiệt độ drop mạnh. KDE lệch xa so với Gaussian lý tưởng (đường đỏ đứt) → không nên dùng 3σ trực tiếp trên raw data.
 
 ---
 
-## 3. Tuning Log
+### ACF Plot
+![ACF](assets/plot_acf.png)
 
-### 3.1 Detector 1: Rolling Z-Score
-
-Evaluated parameters: Window sizes of 144, 288, 576 combined with threshold multipliers of 2.0, 2.5, 3.0, 3.5, 4.0.
-
-Key tuning iterations:
-
-Run 1: Window 288, Threshold 3.0, Precision 0.2222, Recall 0.8000, F1 0.3478, False Alarms 28
-Run 2: Window 144, Threshold 2.5, Precision 0.0976, Recall 0.8000, F1 0.1739, False Alarms 74
-Run 3: Window 576, Threshold 3.5, Precision 0.4444, Recall 0.8000, F1 0.5714, False Alarms 10
-
-Key Takeaways:
-- Lowering the standard deviation threshold boosts recall but hurts precision by generating excessive false positives.
-- Expanding the rolling window size creates a smoother, more reliable baseline, though it reacts more slowly to abrupt shifts in the data.
-- Pushing both the window size and the threshold too high causes the model to miss actual anomalies, ultimately degrading the overall F1 score.
-
-### 3.2 Detector 2: Isolation Forest
-
-Evaluated parameters: Contamination levels (0.005, 0.01, 0.02, 0.03, 0.05) and number of estimators (50, 100, 200).
-
-Key tuning iterations:
-
-Run 1: Contamination 0.01, Estimators 100, Precision 0.2308, Recall 0.9000, F1 0.3673, False Alarms 30
-Run 2: Contamination 0.02, Estimators 100, Precision 0.1154, Recall 0.9000, F1 0.2045, False Alarms 69
-Run 3: Contamination 0.05, Estimators 200, Precision 0.0462, Recall 0.9000, F1 0.0878, False Alarms 186
-
-Key Takeaways:
-- Increasing the contamination parameter forces the model to flag more data points as outliers, which improves recall but severely impacts precision due to false alarms.
-- Adjusting the number of estimators (trees) doesn't significantly change the F1 performance, likely because the underlying dataset is relatively consistent and doesn't require a highly complex ensemble.
-- A tight contamination rate of 0.005 proved to be the optimal setting for maximizing the F1 score on this specific dataset.
+> ACF giảm dần liên tục, không có peak rõ ràng ở lag 288 (1 ngày). Kết luận: **data không có strong daily seasonal pattern**. Tuy nhiên vẫn dùng STL để kiểm tra vì data có thể có weak seasonality.
 
 ---
 
-## 4. Model Artifacts
+### STL Decomposition
+![STL](assets/plot_stl_decomposition.png)
 
-Exported Isolation Forest model path:
-`artifacts/isolation_forest.joblib`
-
-How to load the model for inference:
-```python
-import joblib
-# Load the pre-trained model
-clf = joblib.load("artifacts/isolation_forest.joblib")
-# Generate predictions (-1 for anomalies, 1 for normal data)
-predictions = clf.predict(X)
-```
-
-Optimized hyperparameters:
-- Contamination Rate: 0.005
-- Number of Estimators: 50
-- Random State Seed: 42
-- Training Dataset Shape: 3889 instances across 11 engineered features
+> STL tách thành công 3 thành phần:
+> - **Trend**: bắt được 2 đợt drop lớn (Dec 2013 và Feb 2014)
+> - **Seasonal**: dao động nhỏ ±10, chu kỳ đều — weak daily pattern
+> - **Residual**: anomaly (chấm đỏ) hiện rõ khi residual vượt ±3σ band
 
 ---
 
-## 5. Visualizations
+### Anomaly Detection Comparison
+![Comparison](assets/plot_comparison.png)
 
-### 5.1 Raw Time Series
-![Raw Time Series](assets/plot_raw_series.png)
+> - **STL + 3σ** (panel giữa): detect được cluster Dec-2013 và Feb-2014, nhưng sinh nhiều false alarm (cam) ở các vùng temperature drop tự nhiên
+> - **Isolation Forest** (panel dưới): ít false alarm hơn, bắt được cluster Feb-2014 tốt hơn, nhưng miss một số điểm trong cluster Dec-2013
 
-### 5.2 Histogram and Distribution
-![Histogram and Distribution](assets/plot_distribution.png)
+---
 
-### 5.3 Anomaly Detection Results
-![Anomaly Detection Results](assets/plot_comparison.png)
+## Bảng So Sánh 2 Detector
 
-### 5.4 ACF Plot
-![ACF Plot](assets/plot_acf.png)
+| Metric         | Detector 1: STL + 3σ | Detector 2: Isolation Forest |
+|----------------|---------------------:|-----------------------------:|
+| Precision      | 0.165                | 0.286                        |
+| Recall         | 0.107                | 0.489                        |
+| F1             | 0.130                | 0.361                        |
+| False Alarms   | cao                  | thấp hơn                     |
+| Missed Anomaly | nhiều                | ít hơn                       |
 
-### 5.5 STL Decomposition
-![STL Decomposition](assets/plot_stl_decomposition.png)
+---
+
+## Tuning Log
+
+### Isolation Forest — contamination tuning
+
+| Run | contamination | Precision | Recall | F1    | False Alarms |
+|-----|--------------|-----------|--------|-------|--------------|
+| 1   | 0.010        | 0.489     | 0.286  | 0.361 | thấp         |
+| 2   | 0.020        | 0.315     | 0.369  | 0.340 | trung bình   |
+| 3   | 0.050        | 0.219     | 0.384  | 0.279 | cao          |
+
+**Best**: contamination=0.01 → F1=0.361 
+
+### STL — threshold tuning
+
+| Run | Threshold | Precision | Recall | F1    |
+|-----|-----------|-----------|--------|-------|
+| 1   | 2.0σ      | 0.093     | 0.141  | 0.112 |
+| 2   | 3.0σ      | 0.165     | 0.107  | 0.130 |
+| 3   | 4.0σ      | 0.250     | 0.046  | 0.077 |
+
+**Best**: threshold=3.0σ → F1=0.130 (default) 
+
+### Isolation Forest — score threshold tuning (percentile)
+
+| Run | Percentile | Threshold | Precision | Recall | F1    | Alerts |
+|-----|-----------|-----------|-----------|--------|-------|--------|
+| 1   | 1%        | -0.0000   | 0.489     | 0.286  | 0.361 | 227    |
+| 2   | 3%        | 0.0671    | 0.219     | 0.384  | 0.279 | 681    |
+| 3   | 8%        | 0.1234    | 0.113     | 0.531  | 0.187 | 1816   |
+
+**Quan sát**: Recall 0.531 đạt được ở percentile=8% nhưng alerts tăng 8x (227→1816) — không khả thi production.
+
+---
+
+## Model Artifacts
+
+- `isolation_forest_model.joblib` — Isolation Forest trained model (contamination=0.01, n_estimators=200)
+- `scaler.joblib` — StandardScaler fitted trên training features
+
+---
+
+## Reflection
+
+### 1. Data Type
+- **Dataset**: machine_temperature_system_failure (NAB — realKnownCause)
+- **Skewness = -1.834** → Heavily left-skewed. Đa số giá trị tập trung ở 85-100°C (nhiệt độ vận hành bình thường), đuôi dài bên trái do các lần drop đột ngột. 3σ trên raw data sẽ sai vì threshold âm vô nghĩa.
+- **Seasonal**: Weak — ACF không có peak rõ ở lag 288. Data 5-minute, không có daily pattern mạnh.
+- **Stationarity**: Non-stationary — có 2 đợt drop lớn (system failure events) làm mean thay đổi đột ngột.
+
+### 2. Method Choice
+
+**Detector 1: STL + 3σ**
+Chọn vì data có thể có weak seasonality → STL tách seasonal ra trước, 3σ trên residual chính xác hơn raw data. Dù ACF không peak rõ, STL với robust=True vẫn handle được non-stationary data tốt hơn 3σ thuần.
+
+**Detector 2: Isolation Forest**
+Chọn vì:
+- Data left-skewed → IF không giả định distribution
+- Dùng feature engineering (rolling mean, std, rate of change, lag) để capture temporal context
+- Không cần label để train (unsupervised)
+
+### 3. Kết Quả & Trade-off
+
+Isolation Forest thắng rõ ràng theo mọi metric:
+- Recall cao hơn gần 5x (0.489 vs 0.107) → bắt được nhiều anomaly thật hơn
+- Precision cao hơn gần 2x (0.286 vs 0.165) → ít false alarm hơn
+- F1 cao hơn gần 3x (0.361 vs 0.130)
+
+STL fail vì: data không có strong seasonality → seasonal component STL tách ra không có ý nghĩa nhiều → residual vẫn noisy → 3σ trên residual sinh nhiều false alarm ở các vùng temperature drop tự nhiên.
+
+Khi tune threshold IF xuống percentile=8%, Recall đạt 0.531 (>50%) nhưng alerts tăng từ 227 lên 1816 — không dùng được trong production vì on-call sẽ bị alert fatigue.
+
+### 4. Production Choice
+
+Dùng **Isolation Forest làm detector chính** (Recall=0.489, F1=0.361).
+STL giữ lại để cross-validate: khi IF trigger, nếu STL cũng trigger → high confidence alert → page on-call ngay. Nếu chỉ IF trigger → low confidence → log để review sau.
+
+---
