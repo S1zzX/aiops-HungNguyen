@@ -7,22 +7,50 @@ Total points: 4032
 
 ---
 
-## 1. Screenshots
+## 1. Reflection & Insights
 
-### 1.1 Raw Time Series
-![Raw Time Series](assets/plot_raw_series.png)
+### 1.1 Dataset Overview
 
-### 1.2 Histogram and Distribution
-![Histogram and Distribution](assets/plot_distribution.png)
+The analyzed dataset tracks EC2 request latency as a continuous time series, sampled every 5 minutes spanning a two-week period.
 
-### 1.3 Anomaly Detection Results
-![Anomaly Detection Results](assets/plot_comparison.png)
+Notable characteristics:
+1. **Distribution**: The data exhibits a nearly Gaussian (normal) distribution with minimal skewness. Looking at the histogram, it closely resembles a symmetric bell curve.
+2. **Stationarity**: For the vast majority of the timeline, the series is stationary. The baseline mean hovers around 44 ms with a tight standard deviation of roughly 2 ms.
+3. **Seasonality**: There are no obvious or strong daily cyclic patterns observed in the latency data.
+4. **Anomalous Events**: A distinct system failure window occurs towards the very end of the recording (specifically between 02:55 and 03:41 on March 21, 2014).
 
-### 1.4 ACF Plot
-![ACF Plot](assets/plot_acf.png)
+### 1.2 Rationale for Method Selection
 
-### 1.5 STL Decomposition
-![STL Decomposition](assets/plot_stl_decomposition.png)
+**Rolling Z-Score**: This statistical approach was selected primarily because the data is stationary and its distribution is roughly normal. Z-score thresholds work exceptionally well on non-skewed data. By applying a one-day rolling window, the baseline is continuously updated based on recent behavior rather than being skewed by the entire historical dataset.
+
+**Isolation Forest**: This machine learning algorithm was chosen for its flexibility, as it doesn't rely on strict assumptions about data distribution. Instead of looking at raw values, it isolates outliers by examining a robust table of 11 engineered features (which capture velocity, acceleration, recent volatility, etc.), allowing it to spot complex, multi-dimensional anomalies.
+
+### 1.3 Model Performance Evaluation
+
+When comparing the optimized F1 scores, the simpler Rolling Z-Score significantly outperformed the Isolation Forest approach. 
+The primary anomaly in this dataset represents a massive, abrupt spike in request latency. Because the Z-score method strictly flags statistically significant deviations from the recent mean, it was perfectly suited to catch this specific type of sudden spike with high precision.
+
+### 1.4 Feature & Trade-off Comparison
+
+| Characteristic | Rolling Z-Score (Statistical) | Isolation Forest (ML) |
+| :--- | :--- | :--- |
+| **Model Training Time** | None (Calculated on the fly) | Fast |
+| **Ease of Interpretability** | Very High | Low (Black-box) |
+| **Relies on Data Distribution** | Yes (Assumes Gaussian) | No |
+| **Number of Features Evaluated**| 1 (Raw Metric) | 11 (Engineered Features) |
+| **Handling of Huge Spikes** | Excellent | Excellent |
+| **Handling of Subtle Drifts** | Poor | Very Good |
+| **Sensitivity to Random Noise** | High | Moderate |
+
+### 1.5 Final Recommendations for Production
+
+For real-time monitoring of EC2 request latency in a live production environment, the **Rolling Z-Score** method is the recommended primary detector.
+1. **Operational Efficiency**: It computes instantly on streaming data without any need for periodic model retraining.
+2. **Transparency**: When an alert fires, on-call engineers can easily understand the root cause (e.g., "Latency exceeded 4 standard deviations from the 24-hour mean").
+3. **Effectiveness**: The critical failures for this specific service manifest as massive, sudden latency spikes, which the Z-score reliably catches.
+4. **Resource Cost**: It requires minimal CPU and memory overhead to run at scale.
+
+**Secondary Strategy**: The Isolation Forest model shouldn't be discarded. It can be deployed alongside the Z-score as a secondary validation layer, specifically utilized to confirm alerts or to monitor for more complex, subtle degradations that basic statistical methods might miss.
 
 ---
 
@@ -105,47 +133,19 @@ Optimized hyperparameters:
 
 ---
 
-## 5. Reflection & Insights
+## 5. Visualizations
 
-### 5.1 Dataset Overview
+### 5.1 Raw Time Series
+![Raw Time Series](assets/plot_raw_series.png)
 
-The analyzed dataset tracks EC2 request latency as a continuous time series, sampled every 5 minutes spanning a two-week period.
+### 5.2 Histogram and Distribution
+![Histogram and Distribution](assets/plot_distribution.png)
 
-Notable characteristics:
-1. **Distribution**: The data exhibits a nearly Gaussian (normal) distribution with minimal skewness. Looking at the histogram, it closely resembles a symmetric bell curve.
-2. **Stationarity**: For the vast majority of the timeline, the series is stationary. The baseline mean hovers around 44 ms with a tight standard deviation of roughly 2 ms.
-3. **Seasonality**: There are no obvious or strong daily cyclic patterns observed in the latency data.
-4. **Anomalous Events**: A distinct system failure window occurs towards the very end of the recording (specifically between 02:55 and 03:41 on March 21, 2014).
+### 5.3 Anomaly Detection Results
+![Anomaly Detection Results](assets/plot_comparison.png)
 
-### 5.2 Rationale for Method Selection
+### 5.4 ACF Plot
+![ACF Plot](assets/plot_acf.png)
 
-**Rolling Z-Score**: This statistical approach was selected primarily because the data is stationary and its distribution is roughly normal. Z-score thresholds work exceptionally well on non-skewed data. By applying a one-day rolling window, the baseline is continuously updated based on recent behavior rather than being skewed by the entire historical dataset.
-
-**Isolation Forest**: This machine learning algorithm was chosen for its flexibility, as it doesn't rely on strict assumptions about data distribution. Instead of looking at raw values, it isolates outliers by examining a robust table of 11 engineered features (which capture velocity, acceleration, recent volatility, etc.), allowing it to spot complex, multi-dimensional anomalies.
-
-### 5.3 Model Performance Evaluation
-
-When comparing the optimized F1 scores, the simpler Rolling Z-Score significantly outperformed the Isolation Forest approach. 
-The primary anomaly in this dataset represents a massive, abrupt spike in request latency. Because the Z-score method strictly flags statistically significant deviations from the recent mean, it was perfectly suited to catch this specific type of sudden spike with high precision.
-
-### 5.4 Feature & Trade-off Comparison
-
-| Characteristic | Rolling Z-Score (Statistical) | Isolation Forest (ML) |
-| :--- | :--- | :--- |
-| **Model Training Time** | None (Calculated on the fly) | Fast |
-| **Ease of Interpretability** | Very High | Low (Black-box) |
-| **Relies on Data Distribution** | Yes (Assumes Gaussian) | No |
-| **Number of Features Evaluated**| 1 (Raw Metric) | 11 (Engineered Features) |
-| **Handling of Huge Spikes** | Excellent | Excellent |
-| **Handling of Subtle Drifts** | Poor | Very Good |
-| **Sensitivity to Random Noise** | High | Moderate |
-
-### 5.5 Final Recommendations for Production
-
-For real-time monitoring of EC2 request latency in a live production environment, the **Rolling Z-Score** method is the recommended primary detector.
-1. **Operational Efficiency**: It computes instantly on streaming data without any need for periodic model retraining.
-2. **Transparency**: When an alert fires, on-call engineers can easily understand the root cause (e.g., "Latency exceeded 4 standard deviations from the 24-hour mean").
-3. **Effectiveness**: The critical failures for this specific service manifest as massive, sudden latency spikes, which the Z-score reliably catches.
-4. **Resource Cost**: It requires minimal CPU and memory overhead to run at scale.
-
-**Secondary Strategy**: The Isolation Forest model shouldn't be discarded. It can be deployed alongside the Z-score as a secondary validation layer, specifically utilized to confirm alerts or to monitor for more complex, subtle degradations that basic statistical methods might miss.
+### 5.5 STL Decomposition
+![STL Decomposition](assets/plot_stl_decomposition.png)
