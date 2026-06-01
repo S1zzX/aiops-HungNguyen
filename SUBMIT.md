@@ -1,6 +1,6 @@
-# Anomaly Detection Report for EC2 Request Latency
+# Anomaly Detection Report for Machine Temperature System Failure
 
-Dataset: ec2_request_latency_system_failure.csv
+Dataset: machine_temperature_system_failure.csv
 Period: 2014-03-07 to 2014-03-21
 Interval: 5 minutes
 Total points: 4032
@@ -11,12 +11,12 @@ Total points: 4032
 
 ### 1.1 Dataset Overview
 
-The analyzed dataset tracks EC2 request latency as a continuous time series, sampled every 5 minutes spanning a two-week period.
+The analyzed dataset tracks machine temperature as a continuous time series, sampled every 5 minutes spanning a two-week period.
 
 Notable characteristics:
 1. **Distribution**: The data exhibits a nearly Gaussian (normal) distribution with minimal skewness. Looking at the histogram, it closely resembles a symmetric bell curve.
-2. **Stationarity**: For the vast majority of the timeline, the series is stationary. The baseline mean hovers around 44 ms with a tight standard deviation of roughly 2 ms.
-3. **Seasonality**: There are no obvious or strong daily cyclic patterns observed in the latency data.
+2. **Stationarity**: For the vast majority of the timeline, the series is stationary. The baseline mean hovers around a stable operating level with a tight standard deviation.
+3. **Seasonality**: There are no obvious or strong daily cyclic patterns observed in the temperature data.
 4. **Anomalous Events**: A distinct system failure window occurs towards the very end of the recording (specifically between 02:55 and 03:41 on March 21, 2014).
 
 ### 1.2 Rationale for Method Selection
@@ -28,7 +28,7 @@ Notable characteristics:
 ### 1.3 Model Performance Evaluation
 
 When comparing the optimized F1 scores, the simpler Rolling Z-Score significantly outperformed the Isolation Forest approach. 
-The primary anomaly in this dataset represents a massive, abrupt spike in request latency. Because the Z-score method strictly flags statistically significant deviations from the recent mean, it was perfectly suited to catch this specific type of sudden spike with high precision.
+The primary anomaly in this dataset represents a massive, abrupt spike in temperature. Because the Z-score method strictly flags statistically significant deviations from the recent mean, it was perfectly suited to catch this specific type of sudden spike with high precision.
 
 ### 1.4 Feature & Trade-off Comparison
 
@@ -44,10 +44,10 @@ The primary anomaly in this dataset represents a massive, abrupt spike in reques
 
 ### 1.5 Final Recommendations for Production
 
-For real-time monitoring of EC2 request latency in a live production environment, the **Rolling Z-Score** method is the recommended primary detector.
+For real-time monitoring of machine temperature in a live production environment, the **Rolling Z-Score** method is the recommended primary detector.
 1. **Operational Efficiency**: It computes instantly on streaming data without any need for periodic model retraining.
-2. **Transparency**: When an alert fires, on-call engineers can easily understand the root cause (e.g., "Latency exceeded 4 standard deviations from the 24-hour mean").
-3. **Effectiveness**: The critical failures for this specific service manifest as massive, sudden latency spikes, which the Z-score reliably catches.
+2. **Transparency**: When an alert fires, on-call engineers can easily understand the root cause (e.g., "Temperature exceeded 4 standard deviations from the 24-hour mean").
+3. **Effectiveness**: The critical failures for this specific service manifest as massive, sudden temperature spikes, which the Z-score reliably catches.
 4. **Resource Cost**: It requires minimal CPU and memory overhead to run at scale.
 
 **Secondary Strategy**: The Isolation Forest model shouldn't be discarded. It can be deployed alongside the Z-score as a secondary validation layer, specifically utilized to confirm alerts or to monitor for more complex, subtle degradations that basic statistical methods might miss.
