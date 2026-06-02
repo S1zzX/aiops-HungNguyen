@@ -1,0 +1,11 @@
+template_id,template,count,pct
+1,Receiving block <*> src: <*> dest: <*>,1723232,15.419552671263514
+5,BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size <*>,1719741,15.388315055913186
+3,PacketResponder <*> for block <*> <*>,1706728,15.27187418265227
+4,Received block <*> of size <*> from <*>,1706514,15.269959301619624
+18,Deleting block <*> file <*>,1402047,12.545575734484386
+133,BLOCK* NameSystem.delete: <*> is added to invalidSet of <*>,1396174,12.493023882593096
+2,BLOCK* NameSystem.allocateBlock: <*> <*>,575061,5.145670100537518
+10,<*> Served block <*> to <*>,428726,3.836258343937509
+137,<*> exception while serving <*> to <*>,356207,3.1873552710098014
+13,Verification succeeded for <*>,120036,1.0740871945552237

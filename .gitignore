@@ -1,0 +1,16 @@
+# Large dataset files (exceed GitHub's 100MB limit)
+**/dataset/HDFS.log
+**/dataset/preprocessed/Event_traces.csv
+**/dataset/preprocessed/HDFS.npz
+**/dataset/preprocessed/Event_occurrence_matrix.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/

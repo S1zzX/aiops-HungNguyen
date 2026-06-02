@@ -1,0 +1,4 @@
+sim_th,n_templates,avg_lines_per_tmpl,singleton_pct
+0.3,45,248347.3,0.0
+0.5,396,28221.3,0.8
+0.7,1000,11175.6,94.1
