@@ -1,0 +1,8 @@
+{"timestamp": "2026-06-05T10:09:30.986+00:00", "type": "memory_leak", "severity": "warning", "message": "[LOG] GC pressure detected: GC pause exceeded threshold pause_ms=58"}
+{"timestamp": "2026-06-05T10:09:50.535+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory at 80.9% of limit (1.62GB), GC pause=160ms \u2014 possible memory leak"}
+{"timestamp": "2026-06-05T10:10:51.244+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory at 95.3% of limit (1.91GB), GC pause=210ms \u2014 possible memory leak"}
+{"timestamp": "2026-06-05T10:11:32.415+00:00", "type": "memory_leak", "severity": "warning", "message": "Memory growing: 94.1% of limit, GC pause=213ms"}
+{"timestamp": "2026-06-05T10:11:51.957+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory at 95.2% of limit (1.90GB), GC pause=216ms \u2014 possible memory leak"}
+{"timestamp": "2026-06-05T10:12:52.696+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory at 95.3% of limit (1.91GB), GC pause=208ms \u2014 possible memory leak"}
+{"timestamp": "2026-06-05T10:13:33.919+00:00", "type": "memory_leak", "severity": "warning", "message": "Memory growing: 95.5% of limit, GC pause=216ms"}
+{"timestamp": "2026-06-05T10:13:53.446+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory at 96.1% of limit (1.92GB), GC pause=207ms \u2014 possible memory leak"}
