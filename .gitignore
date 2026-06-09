@@ -49,18 +49,10 @@ secrets.toml
 # =============================================================================
 # Data Files (large / generated datasets)
 # =============================================================================
-*.csv
-*.parquet
-*.feather
-*.arrow
-*.h5
-*.hdf5
-*.pkl
-*.pickle
-Dataset/
-
 # Specific large dataset files (exceed GitHub's 100MB limit)
 **/dataset/HDFS.log
+
+# Generated datasets that are recreated locally and should stay out of Git history
 **/dataset/preprocessed/Event_traces.csv
 **/dataset/preprocessed/HDFS.npz
 **/dataset/preprocessed/Event_occurrence_matrix.csv
@@ -68,12 +60,7 @@ Dataset/
 # =============================================================================
 # Generated / Output Files
 # =============================================================================
-*.png
-*.jpg
-*.jpeg
-*.svg
-*.pdf
-!architecture.png
+# Keep generated outputs tracked when they are part of the assignment deliverables.
 
 # =============================================================================
 # IDEs & Editors
