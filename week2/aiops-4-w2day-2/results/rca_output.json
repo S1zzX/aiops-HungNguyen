@@ -1,0 +1,35 @@
+{
+  "clusters_analyzed": 1,
+  "results": [
+    {
+      "cluster_id": "c-000-000",
+      "graph_top3": [
+        [
+          "payment-svc",
+          0.9955
+        ],
+        [
+          "cart-svc",
+          0.8696
+        ],
+        [
+          "notification-svc",
+          0.8447
+        ]
+      ],
+      "root_cause": "payment-svc",
+      "class": "connection_pool_exhaustion",
+      "confidence": 0.9955,
+      "actions": [
+        "Rollback to v3.1. Scale pool 50 → 100 cushion. Add pool monitor alert > 80%."
+      ],
+      "reasoning": "Graph RCA ranked payment-svc top (score 1.00). Terminal in alerting subgraph + earliest alert. Closest match: INC-2025-11-08 — 'Payment-svc v3.2 deploy at 09:42 leak DB pool. Pool 50/50 used trong 5 phút. Dow'. Class: connection_pool_exhaustion.",
+      "similar_incidents": [
+        "INC-2025-11-08",
+        "INC-2026-03-20",
+        "INC-2025-09-05"
+      ],
+      "method": "graph+retrieval"
+    }
+  ]
+}

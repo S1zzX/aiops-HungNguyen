@@ -1,0 +1,37 @@
+{
+  "clusters_analyzed": 1,
+  "results": [
+    {
+      "cluster_id": "c-000-000",
+      "graph_top3": [
+        [
+          "payment-svc",
+          0.7616
+        ],
+        [
+          "edge-lb",
+          0.6976
+        ],
+        [
+          "cart-svc",
+          0.6357
+        ]
+      ],
+      "root_cause": "payment-svc",
+      "class": "connection_pool_exhaustion",
+      "confidence": 0.85,
+      "actions": [
+        "Rollback to a previous version of payment-svc",
+        "Scale the database connection pool to prevent exhaustion",
+        "Implement monitoring for connection pool usage and add alerts for high utilization"
+      ],
+      "reasoning": "The high graph score for payment-svc, combined with the critical alert for checkout-svc's downstream payment error rate and historical incidents of connection pool exhaustion on payment-svc, suggest that this is the root cause. The similarity to past incidents, such as INC-2025-11-08 and INC-2025-09-05, further supports this conclusion. The warning for cart-svc latency and critical edge-lb alerts may be secondary effects of the payment service issue.",
+      "similar_incidents": [
+        "INC-2025-11-08",
+        "INC-2026-03-20",
+        "INC-2025-09-05"
+      ],
+      "method": "graph+llm"
+    }
+  ]
+}
