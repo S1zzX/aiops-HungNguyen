@@ -1,151 +1,131 @@
 """
 correlate.py — Layer 1: Alert Correlation
-Groups incoming alerts into clusters based on:
-  - Time proximity (alerts within gap_sec of each other)
-  - Service graph proximity (services within max_hop hops)
+Extracted từ w2/d1 notebook (assignment.ipynb).
+
+Pipeline: session_groups → topology_group → emit clusters
 """
-import hashlib
 import json
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
-
 import networkx as nx
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+SEV_RANK = {'warn': 1, 'crit': 2}
 
 
 # ---------------------------------------------------------------------------
-# Graph construction
+# Graph builder — dùng đúng format services.json của bạn (có 'stores' + 'edges')
 # ---------------------------------------------------------------------------
 
-def build_graph_from_json(path: str) -> nx.DiGraph:
-    """Load services.json and build a directed service dependency graph."""
-    data = json.loads(Path(path).read_text())
-    G = nx.DiGraph()
+def build_graph(svc_data: dict) -> nx.DiGraph:
+    """Build directed service graph từ services.json."""
+    g = nx.DiGraph()
+    for svc in svc_data['services']:
+        g.add_node(svc['name'])
+    for store in svc_data.get('stores', []):
+        g.add_node(store['name'])
+    for edge in svc_data['edges']:
+        src = edge.get('from') or edge.get('src'); dst = edge.get('to') or edge.get('dst'); g.add_edge(src, dst, type=edge.get('type', 'call'))
+    return g
 
-    for svc in data.get("services", []):
-        G.add_node(svc["id"], name=svc.get("name", svc["id"]))
 
-    for edge in data.get("edges", []):
-        G.add_edge(edge["src"], edge["dst"], weight=edge.get("weight", 1.0))
-
-    return G
+def build_graph_from_file(path: str) -> tuple[nx.DiGraph, dict]:
+    """Load services.json từ file, trả về (graph, raw_svc_data)."""
+    svc_data = json.loads(Path(path).read_text(encoding='utf-8'))
+    return build_graph(svc_data), svc_data
 
 
 # ---------------------------------------------------------------------------
-# Alert fingerprinting
+# Core functions — copy nguyên xi từ notebook d1
 # ---------------------------------------------------------------------------
 
 def fingerprint(alert: dict) -> str:
+    """Vân tay alert: service + metric + severity. Không include ts/value."""
+    return f"{alert['service']}|{alert['metric']}|{alert['severity']}"
+
+
+def session_groups(alerts: list[dict], gap_sec: int = 120) -> list[list[dict]]:
     """
-    Stable identity of an alert — excludes timestamp and value so duplicate
-    firing alerts (same service+metric+severity) hash to the same fingerprint.
-    """
-    key = f"{alert['service']}|{alert['metric']}|{alert['severity']}"
-    return hashlib.md5(key.encode()).hexdigest()[:12]
-
-
-# ---------------------------------------------------------------------------
-# Core correlation logic
-# ---------------------------------------------------------------------------
-
-def _parse_ts(ts_str: str) -> datetime:
-    """Parse ISO-8601 string → aware datetime (UTC)."""
-    ts_str = ts_str.rstrip("Z") + "+00:00"
-    return datetime.fromisoformat(ts_str)
-
-
-def _services_within_hops(G: nx.DiGraph, service: str, max_hop: int) -> set[str]:
-    """
-    Return all services reachable from `service` within max_hop hops
-    in either direction (upstream + downstream).
-    """
-    reachable: set[str] = {service}
-
-    if service not in G:
-        return reachable
-
-    # Forward (downstream)
-    for node, dist in nx.single_source_shortest_path_length(G, service, cutoff=max_hop).items():
-        reachable.add(node)
-
-    # Backward (upstream — reverse graph)
-    G_rev = G.reverse(copy=False)
-    for node, dist in nx.single_source_shortest_path_length(G_rev, service, cutoff=max_hop).items():
-        reachable.add(node)
-
-    return reachable
-
-
-def correlate(
-    alerts: list[dict],
-    G: nx.DiGraph,
-    gap_sec: int = 120,
-    max_hop: int = 2,
-) -> list[dict[str, Any]]:
-    """
-    Group alerts into incident clusters.
-
-    Algorithm:
-      1. Sort alerts by timestamp.
-      2. Use union-find style grouping: an alert joins an existing cluster if
-         - Its timestamp is within gap_sec of the cluster's latest alert, AND
-         - Its service is within max_hop hops of any service already in the cluster.
-      3. Build cluster metadata.
-
-    Returns list of cluster dicts.
+    Session window: group alert liên tiếp nếu khoảng cách thời gian <= gap_sec.
+    Chọn gap_sec=120 vì toàn bộ incident span chỉ ~6 phút, burst liên tục.
     """
     if not alerts:
         return []
+    sorted_alerts = sorted(alerts, key=lambda a: a['ts'])
+    groups = [[sorted_alerts[0]]]
+    for alert in sorted_alerts[1:]:
+        ts      = datetime.fromisoformat(alert['ts'].replace('Z', '+00:00'))
+        last_ts = datetime.fromisoformat(groups[-1][-1]['ts'].replace('Z', '+00:00'))
+        if (ts - last_ts).total_seconds() <= gap_sec:
+            groups[-1].append(alert)
+        else:
+            groups.append([alert])
+    return groups
 
-    # Sort by time
-    sorted_alerts = sorted(alerts, key=lambda a: _parse_ts(a["ts"]))
 
-    clusters: list[dict] = []  # list of {alerts, services_set, latest_ts}
+def topology_group(alerts: list[dict], graph: nx.DiGraph, max_hop: int = 2) -> list[list[dict]]:
+    """
+    Union-Find grouping: 2 service cùng cluster nếu shortest_path <= max_hop.
+    max_hop=2 giữ được cascade trực tiếp mà không kéo service không liên quan.
+    """
+    if not alerts:
+        return []
+    undirected = graph.to_undirected()
+    by_service = defaultdict(list)
+    for a in alerts:
+        by_service[a['service']].append(a)
+    services = list(by_service.keys())
+    parent = {s: s for s in services}
 
-    for alert in sorted_alerts:
-        alert_ts = _parse_ts(alert["ts"])
-        alert_svc = alert["service"]
-        nearby_svcs = _services_within_hops(G, alert_svc, max_hop)
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
 
-        placed = False
-        for cluster in clusters:
-            # Time proximity check
-            time_diff = (alert_ts - cluster["latest_ts"]).total_seconds()
-            if time_diff > gap_sec:
+    def union(x, y):
+        parent[find(x)] = find(y)
+
+    for i, s1 in enumerate(services):
+        for s2 in services[i+1:]:
+            if s1 not in undirected or s2 not in undirected:
+                continue
+            try:
+                dist = nx.shortest_path_length(undirected, s1, s2)
+                if dist <= max_hop:
+                    union(s1, s2)
+            except nx.NetworkXNoPath:
                 continue
 
-            # Service graph proximity check
-            if cluster["services_set"] & nearby_svcs:
-                cluster["alerts"].append(alert)
-                cluster["services_set"].add(alert_svc)
-                cluster["latest_ts"] = max(cluster["latest_ts"], alert_ts)
-                placed = True
-                break
+    groups_dict = defaultdict(list)
+    for s in services:
+        groups_dict[find(s)].extend(by_service[s])
+    return list(groups_dict.values())
 
-        if not placed:
-            clusters.append({
-                "alerts": [alert],
-                "services_set": {alert_svc},
-                "latest_ts": alert_ts,
+
+def max_sev(group: list[dict]) -> str:
+    return max(group, key=lambda a: SEV_RANK.get(a['severity'], 0))['severity']
+
+
+def correlate(alerts: list[dict], graph: nx.DiGraph, gap_sec: int = 120, max_hop: int = 2) -> list[dict]:
+    """Main pipeline: session_groups → topology_group → emit clusters."""
+    sessions = session_groups(alerts, gap_sec=gap_sec)
+    all_clusters = []
+    for si, session in enumerate(sessions):
+        topo_groups = topology_group(session, graph, max_hop=max_hop)
+        for gi, group in enumerate(topo_groups):
+            fps = sorted(set(fingerprint(a) for a in group))
+            all_clusters.append({
+                'cluster_id':   f'c-{si:03d}-{gi:03d}',
+                'alert_count':  len(group),
+                'services':     sorted(set(a['service'] for a in group)),
+                'alert_ids':    sorted(a['id'] for a in group),
+                'time_range':   [min(a['ts'] for a in group), max(a['ts'] for a in group)],
+                'max_severity': max_sev(group),
+                'fingerprints': fps,
+                'alerts':       group,           # giữ lại để RCA dùng
+                'severity_max': max_sev(group),  # alias cho RCA layer
+                'first_ts':     min(a['ts'] for a in group),
+                'last_ts':      max(a['ts'] for a in group),
             })
-
-    # Format output
-    result = []
-    for i, cluster in enumerate(clusters):
-        svcs = list(cluster["services_set"])
-        timestamps = sorted(_parse_ts(a["ts"]) for a in cluster["alerts"])
-        fp_set = frozenset(fingerprint(a) for a in cluster["alerts"])
-        cluster_id = "CLU-" + hashlib.sha256(str(sorted(fp_set)).encode()).hexdigest()[:8].upper()
-
-        result.append({
-            "cluster_id": cluster_id,
-            "alert_count": len(cluster["alerts"]),
-            "services": svcs,
-            "time_range": [
-                timestamps[0].isoformat(),
-                timestamps[-1].isoformat(),
-            ],
-            "alerts": cluster["alerts"],
-        })
-
-    return result
+    return all_clusters

@@ -1,90 +1,81 @@
 # DESIGN.md — AIOps Incident Pipeline (w2/d3)
 
-## 1. Pipeline Architecture
+## Pipeline Architecture
 
 ```
 POST /incident
      │
+     ▼ Pydantic validation (422 on bad input)
+[serve.py]
+     │ Latency middleware → X-Response-Time-Ms header
      ▼
-[serve.py]  ←─── Pydantic validation (422 on bad input)
-     │             Latency middleware (X-Response-Time-Ms header)
+[pipeline.py] process_batch()
      │
-     ▼
-[pipeline.py]  process_batch()
+     ├── L1: correlate() [correlate.py — từ w2/d1]
+     │       session_groups(gap_sec=120) → topology_group(max_hop=2)
+     │       Output: list[cluster]  (cluster_id, services, time_range, alerts)
      │
-     ├──► L1: correlate()  [correlate.py]
-     │         Sort alerts by ts → union-find grouping by (time gap + graph hop distance)
-     │         Output: list of clusters
+     ├── L2: rca_combined() [rca.py — từ w2/d2]
+     │       Terminal score + PageRank trên reverse subgraph
+     │       + Temporal score (alert earliest = higher)
+     │       Output: ranked (service, score)
      │
-     ├──► L2: rca_graph()  [rca.py]
-     │         Build subgraph of alerting services → reverse → PageRank
-     │         Output: ranked (service, confidence) candidates
-     │
-     └──► L3: call_llm_rca()  [rca.py]
-               Build structured prompt with cluster + graph candidates + history
-               Call gpt-4o-mini → parse JSON response
-               Fallback: graph-only if LLM fails or confidence ≥ 0.9
-               Output: root_cause, class, reasoning, actions, similar_incidents
+     └── L3: Groq LLM llama-3.3-70b [rca.py — từ w2/d2 bonus]
+             Prompt = cluster + graph top3 + similar incidents
+             Output: root_cause, class, confidence, reasoning, actions
+             Fallback: graph+retrieval nếu Groq fail hoặc AIOPS_USE_LLM=false
 ```
 
-## 2. Latency Budget Breakdown
+## Latency Budget Breakdown
 
-| Phase | Estimated p99 | Notes |
+| Phase | p99 ước tính | Ghi chú |
 |---|---|---|
-| Pydantic validation | < 1ms | Pure in-memory |
-| L1 Correlation (9 nodes) | < 5ms | Graph traversal is O(V+E), tiny graph |
-| L2 PageRank RCA | < 5ms | NetworkX on subgraph of ≤9 nodes |
-| L3 LLM call (gpt-4o-mini) | 3–8s | Dominates — IO-bound, network dependent |
-| Response serialization | < 1ms | Pydantic model_dump |
-| **Total p99 target** | **< 10s** | LLM path; graph-only ≈ 15ms |
+| Pydantic validation | < 1ms | In-memory |
+| L1 correlate (session + topology) | < 10ms | Union-Find trên ≤20 alerts, graph 10 nodes |
+| L2 rca_combined (PageRank) | < 5ms | Subgraph nhỏ |
+| L3 Groq LLM call | 1–4s | Llama-3.3-70b nhanh hơn GPT-4o ~2×, free tier |
+| Response serialization | < 1ms | Pydantic |
+| **Tổng p99 (LLM path)** | **< 5s** | Groq nhanh hơn OpenAI đáng kể |
+| **Tổng p99 (graph-only)** | **< 20ms** | Khi AIOPS_USE_LLM=false |
 
-The LLM call accounts for ~95% of end-to-end latency. Optimizations applied:
-- **TTLCache** on LLM calls (sha256 of prompt → response, TTL=1h): repeat incidents with same fingerprint hit cache
-- **Skip LLM** if graph confidence ≥ 0.9 (saves the full round-trip)
-- **Feature flag** `AIOPS_USE_LLM=false` for instant fallback during provider outages
-- 10s timeout + 1 retry on OpenAI client prevents indefinite hangs
+LLM call vẫn là bottleneck (~95% latency), nhưng Groq với llama-3.3-70b cho latency thấp hơn GPT-4o khoảng 2–3×. TTLCache (1h) xử lý repeat requests không tốn thêm latency.
 
-## 3. Production Concern: Fault Tolerance
+## Production Concern: Fault Tolerance
 
-**Problem**: LLM provider outages are not uncommon (OpenAI has had multiple incidents in 2025–2026). If the LLM call hangs or errors, we cannot let the entire endpoint return 500 — SREs need *some* answer, even a degraded one.
+**Vấn đề**: Groq API có thể timeout hoặc trả lỗi trong giờ cao điểm. Nếu pipeline crash → SRE không có incident report khi đang xử lý outage thật.
 
-**Solution implemented (graceful degradation)**:
+**Giải pháp implemented — graceful degradation**:
 
 ```
-LLM call
-  ├── Success → full root_cause with reasoning, action classification, similar incidents
-  ├── Timeout (>10s) → raises OpenAI timeout → caught in run_rca()
-  └── Any exception → fallback to graph-only RCA
-       └── PageRank score + history-matched actions → still returns 200
+call_groq_rca()
+  ├── Success          → full result (root_cause + class + reasoning + actions)
+  ├── Timeout / Error  → except block trong run_rca()
+  └── Fallback         → _graph_only_result() → vẫn trả 200 với graph+retrieval
 ```
 
-The endpoint never returns 500 due to LLM failure. The response has lower quality (no natural-language reasoning, generic actions) but the pipeline stays available.
+Ngoài ra:
+- `AIOPS_USE_LLM=false` + restart → bypass hoàn toàn LLM, chạy graph-only trong <1s
+- `TTLCache(ttl=3600)` — cùng cluster fingerprint trong 1h → không gọi Groq lần 2
+- Timeout 30s trong `urllib.urlopen` — không để request hang vô thời hạn
 
-**Tested**: `test_llm_failure_falls_back_gracefully` mocks `call_llm_rca` raising an exception and asserts the endpoint still returns 200 with a valid root cause.
+**Validation output**: `validate_output()` kiểm tra root_cause có trong cluster services, confidence trong [0,1], class hợp lệ — nếu LLM trả sai format thì fallback thay vì crash.
 
-## 4. Framework Choice: FastAPI vs Flask vs BentoML
+## Framework Choice: FastAPI vs Flask vs BentoML
 
-**Chose FastAPI.** Rationale:
+**Chọn FastAPI** vì:
 
-- **Async support**: LLM calls are IO-bound. FastAPI's async endpoint (`async def`) lets the event loop handle other requests while waiting on OpenAI — Flask's sync model would block the worker thread entirely.
-- **Pydantic v2 validation built-in**: Input schema enforcement (422 on bad input) requires zero extra code. Flask needs manual validation or marshmallow.
-- **OpenAPI auto-generated**: `/docs` endpoint works immediately with no extra configuration, useful for SRE teams testing the API.
-- **Type hints throughout**: `response_model=IncidentResponse` ensures the response always matches schema — catch bugs at serialization time, not in production.
+1. **Pydantic v2 validation native**: Input schema với 7 fields (id, ts, service, metric, severity, value, threshold) — Pydantic tự trả 422 với field nào thiếu/sai type, không cần code thêm. Flask cần marshmallow hoặc manual check.
 
-**BentoML rejected because**: pipeline is not a single ML model — it's graph algorithms + LLM calls. BentoML's model versioning and batching primitives don't map cleanly to this workload, and the learning curve adds overhead without commensurate benefit for ≤20 services.
+2. **OpenAPI auto-generate**: `/docs` endpoint hoạt động ngay, SRE có thể test POST /incident trực tiếp trên browser mà không cần curl.
 
-## 5. Service Graph Lifecycle
+3. **Type hints + response_model**: `response_model=IncidentResponse` đảm bảo response luôn đúng schema — catch serialization bug tại runtime thay vì production.
 
-Graph is loaded once at module import from `dataset/services.json` and cached in-memory. A background daemon thread reloads it every 300 seconds. Maximum staleness: 5 minutes.
+**BentoML rejected**: Pipeline không phải single ML model — là graph algorithm + LLM call. BentoML's model versioning và runner abstraction không map cleanly, thêm learning curve không cần thiết.
 
-Trade-off accepted: at scale (100+ services), this should migrate to an event-driven reload triggered by the service registry. At current scale (9 services), polling every 5 minutes is acceptable.
+**Flask rejected**: Sync-only, không có native validation, phải thêm marshmallow + manual OpenAPI.
 
-`GET /version` exposes `graph_version` (MD5 of file content), `graph_loaded_at`, and node/edge counts so operators can immediately verify which topology version is active without digging into logs.
+## Concrete Decisions
 
-## 6. Concurrency Model
-
-Current deployment: single-worker (`uvicorn serve:app --port 8000`).
-
-In-memory cache (`TTLCache`) is not shared across workers. Multi-worker deployment (`--workers 4`) would give each process its own cache — acceptable since cache is an optimization, not correctness. For correctness-critical shared state, Redis would be the right solution.
-
-Production scale-out: `uvicorn serve:app --workers 4` for CPU-bound work parallelism. For LLM-heavy workloads, async concurrency within a single worker is often more efficient than multiple blocking workers.
+- **gap_sec=120**: toàn bộ incident trong dataset span ~6 phút với burst liên tục, 120s đủ để gom. Tăng lên 300s sẽ merge incidents khác nhau; giảm xuống 60s sẽ split cùng 1 incident.
+- **max_hop=2**: bắt được cascade trực tiếp (payment → checkout → edge-lb) mà không kéo services xa hơn (catalog-svc, recommender-svc không liên quan cascade).
+- **w_graph=0.6, w_time=0.4**: graph topology reliable hơn temporal signal (alert có thể bị delay), nhưng temporal giúp phân biệt khi nhiều service cùng score graph.
