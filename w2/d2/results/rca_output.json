@@ -1,25 +1,25 @@
 {
-  "clusters_analyzed": 1,
+  "clusters_analyzed": 5,
   "results": [
     {
       "cluster_id": "c-000-000",
       "graph_top3": [
         [
           "payment-svc",
-          0.9955
+          1.0
         ],
         [
-          "cart-svc",
-          0.8696
+          "checkout-svc",
+          0.5279
         ],
         [
-          "notification-svc",
-          0.8447
+          "edge-lb",
+          0.2666
         ]
       ],
       "root_cause": "payment-svc",
       "class": "connection_pool_exhaustion",
-      "confidence": 0.9955,
+      "confidence": 1.0,
       "actions": [
         "Rollback to v3.1. Scale pool 50 → 100 cushion. Add pool monitor alert > 80%."
       ],
@@ -28,6 +28,94 @@
         "INC-2025-11-08",
         "INC-2026-03-20",
         "INC-2025-09-05"
+      ],
+      "method": "graph+retrieval"
+    },
+    {
+      "cluster_id": "c-000-001",
+      "graph_top3": [
+        [
+          "cart-svc",
+          1.0
+        ]
+      ],
+      "root_cause": "cart-svc",
+      "class": "other",
+      "confidence": 1.0,
+      "actions": [
+        "Tăng maxmemory 4GB → 8GB. Switch policy → volatile-lru. Set TTL trên transient keys."
+      ],
+      "reasoning": "Graph RCA ranked cart-svc top (score 1.00). Terminal in alerting subgraph + earliest alert. Closest match: INC-2025-07-19 — 'Cart loss spikes. cart-redis maxmemory hit, allkeys-lru evicting active carts.'. Class: other.",
+      "similar_incidents": [
+        "INC-2025-07-19",
+        "INC-2026-02-22",
+        "INC-2025-06-12"
+      ],
+      "method": "graph+retrieval"
+    },
+    {
+      "cluster_id": "c-000-002",
+      "graph_top3": [
+        [
+          "notification-svc",
+          1.0
+        ]
+      ],
+      "root_cause": "notification-svc",
+      "class": "other",
+      "confidence": 1.0,
+      "actions": [
+        "Failover to backup provider. Multi-provider routing."
+      ],
+      "reasoning": "Graph RCA ranked notification-svc top (score 1.00). Terminal in alerting subgraph + earliest alert. Closest match: INC-2026-02-08 — 'Email provider (SendGrid) regional outage. Notification queue grow nhưng không i'. Class: other.",
+      "similar_incidents": [
+        "INC-2026-02-08",
+        "INC-2026-05-18",
+        "INC-2025-07-04"
+      ],
+      "method": "graph+retrieval"
+    },
+    {
+      "cluster_id": "c-000-003",
+      "graph_top3": [
+        [
+          "recommender-svc",
+          1.0
+        ]
+      ],
+      "root_cause": "recommender-svc",
+      "class": "memory_leak",
+      "confidence": 1.0,
+      "actions": [
+        "Patch leak; rollback v3.0 trong khi chờ. Add gc.collect() trong handler."
+      ],
+      "reasoning": "Graph RCA ranked recommender-svc top (score 1.00). Terminal in alerting subgraph + earliest alert. Closest match: INC-2025-08-02 — 'Recommender OOM mỗi 4h sau deploy v3.1. Pandas DataFrame không release giữa requ'. Class: memory_leak.",
+      "similar_incidents": [
+        "INC-2025-08-02",
+        "INC-2025-10-28",
+        "INC-2026-03-07"
+      ],
+      "method": "graph+retrieval"
+    },
+    {
+      "cluster_id": "c-000-004",
+      "graph_top3": [
+        [
+          "search-svc",
+          1.0
+        ]
+      ],
+      "root_cause": "search-svc",
+      "class": "other",
+      "confidence": 1.0,
+      "actions": [
+        "Batch fetch related products. Add monitoring query count / request."
+      ],
+      "reasoning": "Graph RCA ranked search-svc top (score 1.00). Terminal in alerting subgraph + earliest alert. Closest match: INC-2026-01-29 — 'Search trả 3s sau khi enable 'related products' feature. N+1 query trên catalog-'. Class: other.",
+      "similar_incidents": [
+        "INC-2026-01-29",
+        "INC-2026-05-25",
+        "INC-2025-09-21"
       ],
       "method": "graph+retrieval"
     }

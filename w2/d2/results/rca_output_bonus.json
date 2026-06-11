@@ -1,20 +1,20 @@
 {
-  "clusters_analyzed": 1,
+  "clusters_analyzed": 5,
   "results": [
     {
       "cluster_id": "c-000-000",
       "graph_top3": [
         [
           "payment-svc",
-          0.7616
+          0.8166
+        ],
+        [
+          "checkout-svc",
+          0.5279
         ],
         [
           "edge-lb",
-          0.6976
-        ],
-        [
-          "cart-svc",
-          0.6357
+          0.45
         ]
       ],
       "root_cause": "payment-svc",
@@ -22,14 +22,110 @@
       "confidence": 0.85,
       "actions": [
         "Rollback to a previous version of payment-svc",
-        "Scale the database connection pool to prevent exhaustion",
-        "Implement monitoring for connection pool usage and add alerts for high utilization"
+        "Scale the database connection pool to increase capacity",
+        "Implement monitoring and alerting for database connection pool usage"
       ],
-      "reasoning": "The high graph score for payment-svc, combined with the critical alert for checkout-svc's downstream payment error rate and historical incidents of connection pool exhaustion on payment-svc, suggest that this is the root cause. The similarity to past incidents, such as INC-2025-11-08 and INC-2025-09-05, further supports this conclusion. The warning for cart-svc latency and critical edge-lb alerts may be secondary effects of the payment service issue.",
+      "reasoning": "The high graph score for payment-svc, combined with the crit alert for db_connection_pool_used_ratio and historical incidents of connection pool exhaustion, suggest that this is the root cause. The downstream_payment_error_rate and latency_p99_ms alerts on checkout-svc also support this conclusion, as they are likely symptoms of the payment service's connection pool issue. The similarity to past incidents INC-2025-11-08 and INC-2025-09-05 further increases confidence in this diagnosis.",
       "similar_incidents": [
         "INC-2025-11-08",
         "INC-2026-03-20",
         "INC-2025-09-05"
+      ],
+      "method": "graph+llm"
+    },
+    {
+      "cluster_id": "c-000-001",
+      "graph_top3": [
+        [
+          "cart-svc",
+          1.0
+        ]
+      ],
+      "root_cause": "cart-svc",
+      "class": "memory_leak",
+      "confidence": 0.8,
+      "actions": [
+        "Investigate cart-svc memory usage and adjust configuration as needed",
+        "Consider increasing maxmemory for cart-redis",
+        "Review and optimize cart-svc code for memory efficiency"
+      ],
+      "reasoning": "The high latency warning on cart-svc, combined with the historical incident of eviction on cart-redis due to maxmemory hit, suggests a memory-related issue. The graph scoring also points to cart-svc as the top candidate. The similarity to the historical incident INC-2025-07-19, where cart-redis maxmemory was increased and the eviction policy was changed, supports this conclusion.",
+      "similar_incidents": [
+        "INC-2025-07-19",
+        "INC-2026-02-22",
+        "INC-2025-06-12"
+      ],
+      "method": "graph+llm"
+    },
+    {
+      "cluster_id": "c-000-002",
+      "graph_top3": [
+        [
+          "notification-svc",
+          1.0
+        ]
+      ],
+      "root_cause": "notification-svc",
+      "class": "other",
+      "confidence": 0.8,
+      "actions": [
+        "Investigate recent changes to feature flags or external provider configurations",
+        "Check for any errors or warnings in the notification-svc logs",
+        "Consider failover to a backup provider or disabling recently enabled feature flags"
+      ],
+      "reasoning": "The notification-svc has the highest graph score and critical alert fingerprints for queue_depth and queue_lag_ms, indicating a potential issue with message processing. Historical incidents such as INC-2026-02-08 and INC-2026-05-18 suggest that the service can be impacted by external factors like downstream provider outages or feature flag issues. The current issue may be related to a similar external or internal factor affecting the service's ability to process notifications.",
+      "similar_incidents": [
+        "INC-2026-02-08",
+        "INC-2026-05-18",
+        "INC-2025-07-04"
+      ],
+      "method": "graph+llm"
+    },
+    {
+      "cluster_id": "c-000-003",
+      "graph_top3": [
+        [
+          "recommender-svc",
+          1.0
+        ]
+      ],
+      "root_cause": "recommender-svc",
+      "class": "memory_leak",
+      "confidence": 0.8,
+      "actions": [
+        "Investigate recent code changes for potential memory leaks",
+        "Monitor memory usage and garbage collection on recommender-svc",
+        "Consider rolling back to a previous version or applying a patch"
+      ],
+      "reasoning": "The high cpu_utilization warning on recommender-svc, combined with the historical incident INC-2025-08-02, suggests a memory leak. The graph scoring also points to recommender-svc as the top candidate. The temporal scoring and alert fingerprints further support this conclusion.",
+      "similar_incidents": [
+        "INC-2025-08-02",
+        "INC-2025-10-28",
+        "INC-2026-03-07"
+      ],
+      "method": "graph+llm"
+    },
+    {
+      "cluster_id": "c-000-004",
+      "graph_top3": [
+        [
+          "search-svc",
+          1.0
+        ]
+      ],
+      "root_cause": "search-svc",
+      "class": "slow_query",
+      "confidence": 0.8,
+      "actions": [
+        "ANALYZE catalog tables",
+        "Check query plans and indexes",
+        "Batch fetch related products to reduce query load"
+      ],
+      "reasoning": "The high score of search-svc in the graph scoring and the alert fingerprint 'catalog_db_query_time_ms|warn' suggest a slow query issue. Historical incidents such as INC-2026-01-29 and INC-2025-09-21 also indicate that slow queries have been a problem for search-svc in the past. The current warning level and the temporal scoring further support this conclusion.",
+      "similar_incidents": [
+        "INC-2026-01-29",
+        "INC-2026-05-25",
+        "INC-2025-09-21"
       ],
       "method": "graph+llm"
     }
