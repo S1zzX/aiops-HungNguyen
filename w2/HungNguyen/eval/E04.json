@@ -1,0 +1,945 @@
+{
+  "incident_id": "E04",
+  "detected_at": "2026-06-10T16:45:00Z",
+  "trigger_alert": {
+    "service": "payment-svc",
+    "rule_id": "latency-p99-high",
+    "severity": "high"
+  },
+  "topology": {
+    "nodes": [
+      {
+        "id": "edge-lb",
+        "tier": "edge"
+      },
+      {
+        "id": "auth-svc",
+        "tier": "api"
+      },
+      {
+        "id": "checkout-svc",
+        "tier": "api"
+      },
+      {
+        "id": "payment-svc",
+        "tier": "api"
+      },
+      {
+        "id": "cart-svc",
+        "tier": "api"
+      },
+      {
+        "id": "catalog-svc",
+        "tier": "api"
+      },
+      {
+        "id": "recommender-svc",
+        "tier": "ml"
+      },
+      {
+        "id": "inventory-svc",
+        "tier": "api"
+      },
+      {
+        "id": "notification-svc",
+        "tier": "api"
+      },
+      {
+        "id": "search-svc",
+        "tier": "api"
+      },
+      {
+        "id": "payments-db",
+        "tier": "store"
+      },
+      {
+        "id": "catalog-db",
+        "tier": "store"
+      },
+      {
+        "id": "cart-redis",
+        "tier": "store"
+      },
+      {
+        "id": "kafka-events",
+        "tier": "store"
+      }
+    ],
+    "edges": [
+      {
+        "from": "edge-lb",
+        "to": "auth-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "edge-lb",
+        "to": "catalog-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "edge-lb",
+        "to": "search-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "edge-lb",
+        "to": "checkout-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "checkout-svc",
+        "to": "cart-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "checkout-svc",
+        "to": "payment-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "checkout-svc",
+        "to": "inventory-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "checkout-svc",
+        "to": "notification-svc",
+        "protocol": "kafka"
+      },
+      {
+        "from": "cart-svc",
+        "to": "cart-redis",
+        "protocol": "redis"
+      },
+      {
+        "from": "cart-svc",
+        "to": "catalog-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "payment-svc",
+        "to": "payments-db",
+        "protocol": "postgres"
+      },
+      {
+        "from": "catalog-svc",
+        "to": "catalog-db",
+        "protocol": "postgres"
+      },
+      {
+        "from": "catalog-svc",
+        "to": "recommender-svc",
+        "protocol": "http"
+      },
+      {
+        "from": "recommender-svc",
+        "to": "catalog-db",
+        "protocol": "postgres"
+      },
+      {
+        "from": "search-svc",
+        "to": "catalog-db",
+        "protocol": "postgres"
+      },
+      {
+        "from": "inventory-svc",
+        "to": "catalog-db",
+        "protocol": "postgres"
+      },
+      {
+        "from": "notification-svc",
+        "to": "kafka-events",
+        "protocol": "kafka"
+      }
+    ]
+  },
+  "metrics_window": {
+    "from": "2026-06-10T16:15:00Z",
+    "to": "2026-06-10T17:00:00Z",
+    "samples": {
+      "payments-db.lock_wait_ms": [
+        [
+          "2026-06-10T13:00:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:00:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:00:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:01:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:01:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:02:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:02:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:03:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:03:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:04:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:04:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:05:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:05:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:06:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:06:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:06:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:07:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:07:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:08:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:08:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:09:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:09:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:10:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:10:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:11:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:11:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:12:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:12:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:12:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:13:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:13:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:14:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:14:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:15:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:15:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:16:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:16:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:17:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:17:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:18:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:18:00Z",
+          5
+        ],
+        [
+          "2026-06-10T13:18:00Z",
+          124.9
+        ],
+        [
+          "2026-06-10T13:19:00Z",
+          244.8
+        ],
+        [
+          "2026-06-10T13:19:00Z",
+          364.6
+        ],
+        [
+          "2026-06-10T13:20:00Z",
+          484.5
+        ],
+        [
+          "2026-06-10T13:20:00Z",
+          604.4
+        ],
+        [
+          "2026-06-10T13:21:00Z",
+          724.2
+        ],
+        [
+          "2026-06-10T13:21:00Z",
+          844.1
+        ],
+        [
+          "2026-06-10T13:22:00Z",
+          964.0
+        ],
+        [
+          "2026-06-10T13:22:00Z",
+          1083.9
+        ],
+        [
+          "2026-06-10T13:23:00Z",
+          1203.8
+        ],
+        [
+          "2026-06-10T13:23:00Z",
+          1323.6
+        ],
+        [
+          "2026-06-10T13:24:00Z",
+          1443.5
+        ],
+        [
+          "2026-06-10T13:24:00Z",
+          1563.4
+        ],
+        [
+          "2026-06-10T13:24:00Z",
+          1683.3
+        ],
+        [
+          "2026-06-10T13:25:00Z",
+          1803.1
+        ],
+        [
+          "2026-06-10T13:25:00Z",
+          1923.0
+        ],
+        [
+          "2026-06-10T13:26:00Z",
+          2042.9
+        ],
+        [
+          "2026-06-10T13:26:00Z",
+          2162.8
+        ],
+        [
+          "2026-06-10T13:27:00Z",
+          2282.6
+        ],
+        [
+          "2026-06-10T13:27:00Z",
+          2402.5
+        ],
+        [
+          "2026-06-10T13:28:00Z",
+          2522.4
+        ],
+        [
+          "2026-06-10T13:28:00Z",
+          2642.2
+        ],
+        [
+          "2026-06-10T13:29:00Z",
+          2762.1
+        ],
+        [
+          "2026-06-10T13:29:00Z",
+          2882.0
+        ],
+        [
+          "2026-06-10T13:30:00Z",
+          3001.9
+        ],
+        [
+          "2026-06-10T13:30:00Z",
+          3121.7
+        ],
+        [
+          "2026-06-10T13:30:00Z",
+          3241.6
+        ],
+        [
+          "2026-06-10T13:31:00Z",
+          3361.5
+        ],
+        [
+          "2026-06-10T13:31:00Z",
+          3481.4
+        ],
+        [
+          "2026-06-10T13:32:00Z",
+          3601.2
+        ],
+        [
+          "2026-06-10T13:32:00Z",
+          3721.1
+        ],
+        [
+          "2026-06-10T13:33:00Z",
+          3841.0
+        ],
+        [
+          "2026-06-10T13:33:00Z",
+          3960.9
+        ],
+        [
+          "2026-06-10T13:34:00Z",
+          4080.8
+        ],
+        [
+          "2026-06-10T13:34:00Z",
+          4200.6
+        ],
+        [
+          "2026-06-10T13:35:00Z",
+          4320.5
+        ],
+        [
+          "2026-06-10T13:35:00Z",
+          4440.4
+        ],
+        [
+          "2026-06-10T13:36:00Z",
+          4560.2
+        ],
+        [
+          "2026-06-10T13:36:00Z",
+          4680.1
+        ]
+      ],
+      "payment-svc.latency_p99_ms": [
+        [
+          "2026-06-10T13:00:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:00:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:00:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:01:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:01:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:02:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:02:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:03:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:03:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:04:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:04:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:05:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:05:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:06:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:06:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:06:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:07:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:07:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:08:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:08:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:09:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:09:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:10:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:10:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:11:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:11:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:12:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:12:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:12:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:13:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:13:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:14:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:14:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:15:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:15:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:16:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:16:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:17:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:17:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:18:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:18:00Z",
+          100
+        ],
+        [
+          "2026-06-10T13:18:00Z",
+          185.0
+        ],
+        [
+          "2026-06-10T13:19:00Z",
+          270.0
+        ],
+        [
+          "2026-06-10T13:19:00Z",
+          355.0
+        ],
+        [
+          "2026-06-10T13:20:00Z",
+          440.0
+        ],
+        [
+          "2026-06-10T13:20:00Z",
+          525.0
+        ],
+        [
+          "2026-06-10T13:21:00Z",
+          610.0
+        ],
+        [
+          "2026-06-10T13:21:00Z",
+          695.0
+        ],
+        [
+          "2026-06-10T13:22:00Z",
+          780.0
+        ],
+        [
+          "2026-06-10T13:22:00Z",
+          865.0
+        ],
+        [
+          "2026-06-10T13:23:00Z",
+          950.0
+        ],
+        [
+          "2026-06-10T13:23:00Z",
+          1035.0
+        ],
+        [
+          "2026-06-10T13:24:00Z",
+          1120.0
+        ],
+        [
+          "2026-06-10T13:24:00Z",
+          1205.0
+        ],
+        [
+          "2026-06-10T13:24:00Z",
+          1290.0
+        ],
+        [
+          "2026-06-10T13:25:00Z",
+          1375.0
+        ],
+        [
+          "2026-06-10T13:25:00Z",
+          1460.0
+        ],
+        [
+          "2026-06-10T13:26:00Z",
+          1545.0
+        ],
+        [
+          "2026-06-10T13:26:00Z",
+          1630.0
+        ],
+        [
+          "2026-06-10T13:27:00Z",
+          1715.0
+        ],
+        [
+          "2026-06-10T13:27:00Z",
+          1800.0
+        ],
+        [
+          "2026-06-10T13:28:00Z",
+          1885.0
+        ],
+        [
+          "2026-06-10T13:28:00Z",
+          1970.0
+        ],
+        [
+          "2026-06-10T13:29:00Z",
+          2055.0
+        ],
+        [
+          "2026-06-10T13:29:00Z",
+          2140.0
+        ],
+        [
+          "2026-06-10T13:30:00Z",
+          2225.0
+        ],
+        [
+          "2026-06-10T13:30:00Z",
+          2310.0
+        ],
+        [
+          "2026-06-10T13:30:00Z",
+          2395.0
+        ],
+        [
+          "2026-06-10T13:31:00Z",
+          2480.0
+        ],
+        [
+          "2026-06-10T13:31:00Z",
+          2565.0
+        ],
+        [
+          "2026-06-10T13:32:00Z",
+          2650.0
+        ],
+        [
+          "2026-06-10T13:32:00Z",
+          2735.0
+        ],
+        [
+          "2026-06-10T13:33:00Z",
+          2820.0
+        ],
+        [
+          "2026-06-10T13:33:00Z",
+          2905.0
+        ],
+        [
+          "2026-06-10T13:34:00Z",
+          2990.0
+        ],
+        [
+          "2026-06-10T13:34:00Z",
+          3075.0
+        ],
+        [
+          "2026-06-10T13:35:00Z",
+          3160.0
+        ],
+        [
+          "2026-06-10T13:35:00Z",
+          3245.0
+        ],
+        [
+          "2026-06-10T13:36:00Z",
+          3330.0
+        ],
+        [
+          "2026-06-10T13:36:00Z",
+          3415.0
+        ]
+      ]
+    }
+  },
+  "traces": [
+    {
+      "ts": "2026-06-10T16:45:05Z",
+      "from": "payment-svc",
+      "to": "payments-db",
+      "count": 80,
+      "error_count": 12,
+      "p50_ms": 900,
+      "p99_ms": 4800
+    }
+  ],
+  "logs": [
+    {
+      "ts": "2026-06-10T16:44:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:44:05Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Deadlock found when trying to get lock; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:44:10Z",
+      "svc": "payment-svc",
+      "level": "WARN",
+      "msg": "DB query timeout after 5000ms, retrying"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    },
+    {
+      "ts": "2026-06-10T16:45:00Z",
+      "svc": "payments-db",
+      "level": "ERROR",
+      "msg": "Lock wait timeout exceeded; try restarting transaction"
+    }
+  ]
+}

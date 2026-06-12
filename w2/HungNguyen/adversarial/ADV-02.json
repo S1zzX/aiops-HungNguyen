@@ -1,0 +1,17 @@
+{
+  "incident_id": "ADV-02",
+  "detected_at": "2026-06-12T11:00:00Z",
+  "trigger_alert": {"service": "payment-svc", "rule_id": "latency-p99-high", "severity": "critical"},
+  "topology": {"nodes": [], "edges": []},
+  "metrics_window": {"from": "2026-06-12T10:30:00Z", "to": "2026-06-12T11:05:00Z", "samples": {}},
+  "traces": [
+    {"ts": "2026-06-12T11:00:05Z", "from": "payment-svc", "to": "payments-db", "count": 100, "error_count": 12, "p50_ms": 900, "p99_ms": 4800}
+  ],
+  "logs": [
+    {"ts": "2026-06-12T10:59:50Z", "svc": "payment-svc", "level": "ERROR", "msg": "ConnectionPool: timeout acquiring connection (waited 5000ms)"},
+    {"ts": "2026-06-12T10:59:52Z", "svc": "payment-svc", "level": "ERROR", "msg": "Failed to forward request: pool exhausted"},
+    {"ts": "2026-06-12T10:59:55Z", "svc": "payments-db", "level": "ERROR", "msg": "deadlock detected on table orders"},
+    {"ts": "2026-06-12T10:59:58Z", "svc": "payments-db", "level": "ERROR", "msg": "lock timeout exceeded after 5000ms"},
+    {"ts": "2026-06-12T11:00:01Z", "svc": "payment-svc", "level": "ERROR", "msg": "ConnectionPool: timeout acquiring connection (waited 5000ms)"}
+  ]
+}

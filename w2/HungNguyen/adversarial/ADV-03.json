@@ -1,0 +1,14 @@
+{
+  "incident_id": "ADV-03",
+  "detected_at": "2026-06-12T12:00:00Z",
+  "trigger_alert": {"service": "recommender-svc", "rule_id": "error-rate-high", "severity": "warning"},
+  "topology": {"nodes": [], "edges": []},
+  "metrics_window": {"from": "2026-06-12T11:30:00Z", "to": "2026-06-12T12:05:00Z", "samples": {}},
+  "traces": [
+    {"ts": "2026-06-12T12:00:05Z", "from": "catalog-db", "to": "recommender-svc", "count": 100, "error_count": 15, "p50_ms": 200, "p99_ms": 600}
+  ],
+  "logs": [
+    {"ts": "2026-06-12T11:59:50Z", "svc": "recommender-svc", "level": "ERROR", "msg": "service error rate elevated"},
+    {"ts": "2026-06-12T11:59:55Z", "svc": "recommender-svc", "level": "ERROR", "msg": "degraded behavior detected"}
+  ]
+}

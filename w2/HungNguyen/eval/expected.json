@@ -1,0 +1,115 @@
+{
+  "E01": {
+    "accepted_actions": [
+      {
+        "name": "rollback_service",
+        "params": {
+          "service": "payment-svc"
+        }
+      },
+      {
+        "name": "increase_pool_size",
+        "params": {
+          "service": "payment-svc"
+        }
+      }
+    ],
+    "must_not_action": "page_oncall",
+    "notes": "connection_pool_exhaustion on payment-svc \u2014 must NOT escalate"
+  },
+  "E02": {
+    "accepted_actions": [
+      {
+        "name": "rollback_service",
+        "params": {
+          "service": "catalog-svc"
+        }
+      }
+    ],
+    "notes": "bad deploy on catalog-svc"
+  },
+  "E03": {
+    "accepted_actions": [
+      {
+        "name": "rollback_service",
+        "params": {
+          "service": "recommender-svc"
+        }
+      },
+      {
+        "name": "restart_pod",
+        "params": {
+          "service": "recommender-svc"
+        }
+      }
+    ],
+    "notes": "memory leak / OOM on recommender-svc"
+  },
+  "E04": {
+    "accepted_actions": [
+      {
+        "name": "restart_pod",
+        "params": {
+          "service": "payments-db"
+        }
+      }
+    ],
+    "notes": "lock contention on payments-db"
+  },
+  "E05": {
+    "accepted_actions": [
+      {
+        "name": "increase_pool_size",
+        "params": {
+          "service": "payment-svc"
+        }
+      },
+      {
+        "name": "rollback_service",
+        "params": {
+          "service": "payment-svc"
+        }
+      }
+    ],
+    "notes": "connection pool exhaustion, outcome-weighted voting should pick increase_pool_size"
+  },
+  "E06": {
+    "accepted_actions": [
+      {
+        "name": "increase_pool_size",
+        "params": {
+          "service": "payment-svc"
+        }
+      },
+      {
+        "name": "rollback_service",
+        "params": {
+          "service": "payment-svc"
+        }
+      }
+    ],
+    "notes": "conflicting evidence \u2014 trace signal dominates, payment-svc pool exhaustion is root"
+  },
+  "E07": {
+    "accepted_actions": [
+      {
+        "name": "page_oncall",
+        "params": {
+          "team": "platform-team"
+        }
+      }
+    ],
+    "notes": "OOD novel DNS/mTLS pattern \u2014 must escalate, do not auto-act"
+  },
+  "E08": {
+    "accepted_actions": [
+      {
+        "name": "page_oncall",
+        "params": {
+          "team": "platform-team"
+        }
+      }
+    ],
+    "notes": "cascade with leaf root (catalog-db slow_query) \u2014 page_oncall acceptable; engine may also suggest restart_pod:catalog-db"
+  }
+}

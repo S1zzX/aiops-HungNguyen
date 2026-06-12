@@ -1,0 +1,17 @@
+{
+  "incident_id": "ADV-01",
+  "detected_at": "2026-06-12T10:00:00Z",
+  "trigger_alert": {"service": "auth-svc", "rule_id": "error-rate-high", "severity": "critical"},
+  "topology": {"nodes": [], "edges": []},
+  "metrics_window": {"from": "2026-06-12T09:30:00Z", "to": "2026-06-12T10:05:00Z", "samples": {}},
+  "traces": [
+    {"ts": "2026-06-12T10:00:05Z", "from": "edge-lb", "to": "auth-svc", "count": 100, "error_count": 95, "p50_ms": 200, "p99_ms": 15000}
+  ],
+  "logs": [
+    {"ts": "2026-06-12T09:59:50Z", "svc": "auth-svc", "level": "ERROR", "msg": "SPIFFE SVID rotation failed for spiffe://cluster.local/ns/auth/sa/auth-svc"},
+    {"ts": "2026-06-12T09:59:55Z", "svc": "auth-svc", "level": "ERROR", "msg": "mTLS handshake failed: x509 certificate verification error"},
+    {"ts": "2026-06-12T10:00:00Z", "svc": "edge-lb", "level": "ERROR", "msg": "NXDOMAIN resolving auth-svc.internal"},
+    {"ts": "2026-06-12T10:00:02Z", "svc": "auth-svc", "level": "ERROR", "msg": "SPIFFE SVID rotation failed for spiffe://cluster.local/ns/auth/sa/auth-svc"},
+    {"ts": "2026-06-12T10:00:04Z", "svc": "edge-lb", "level": "ERROR", "msg": "NXDOMAIN resolving auth-svc.internal"}
+  ]
+}
