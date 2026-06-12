@@ -1,112 +1,55 @@
 """
-pipeline.py — Glue layer: correlate → rca → format response.
+pipeline.py — Glue layer: correlate → RCA → format cho IncidentResponse
 
-Dùng đúng dataset format từ w2/d1 và w2/d2 của bạn:
-  - services.json có 'services', 'stores', 'edges'
-  - incidents_history.json có 'incidents' list
+Load service graph + incident history 1 lần ở module level (cache),
+expose process_batch(alerts) cho serve.py.
 """
-import json
 import logging
-import threading
-import time
-import datetime
-import hashlib
 from pathlib import Path
 
-from correlate import build_graph, correlate
+from correlate import build_graph_from_file, correlate
 from rca import run_rca
+import json
 
 logger = logging.getLogger('aiops')
 
-# ---------------------------------------------------------------------------
-# Paths — dataset nằm cùng folder với serve.py
-# ---------------------------------------------------------------------------
-_BASE        = Path(__file__).parent
-_SVC_PATH    = _BASE / 'dataset' / 'services.json'
-_HIST_PATH   = _BASE / 'dataset' / 'incidents_history.json'
+DATASET_DIR = Path(__file__).parent / 'dataset'
 
 # ---------------------------------------------------------------------------
-# Shared state
+# Module-level cache — load 1 lần khi import
 # ---------------------------------------------------------------------------
-_lock           = threading.Lock()
-_graph          = None
-_svc_data       = None
-_history        = None
-_graph_version  = ''
-_graph_loaded_at = ''
+_graph, _svc_data = build_graph_from_file(str(DATASET_DIR / 'services.json'))
+_history = json.loads((DATASET_DIR / 'incidents_history.json').read_text(encoding='utf-8'))
 
-
-def _load_all():
-    global _graph, _svc_data, _history, _graph_version, _graph_loaded_at
-
-    svc_raw  = json.loads(_SVC_PATH.read_text(encoding='utf-8'))
-    hist_raw = json.loads(_HIST_PATH.read_text(encoding='utf-8'))
-    g        = build_graph(svc_raw)
-    version  = 'g-' + hashlib.md5(_SVC_PATH.read_bytes()).hexdigest()[:8].upper()
-    loaded_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-    with _lock:
-        _graph           = g
-        _svc_data        = svc_raw
-        _history         = hist_raw
-        _graph_version   = version
-        _graph_loaded_at = loaded_at
-
-    logger.info(f'Graph loaded: {g.number_of_nodes()} nodes, {g.number_of_edges()} edges, version={version}')
-    logger.info(f'History loaded: {len(hist_raw["incidents"])} past incidents')
-
-
-def reload_graph():
-    _load_all()
+_graph_version = 'g-local-001'
+_graph_source = 'manual'
 
 
 def get_graph_meta() -> dict:
-    with _lock:
-        return {
-            'graph_version':    _graph_version,
-            'graph_loaded_at':  _graph_loaded_at,
-            'graph_source':     str(_SVC_PATH),
-            'graph_node_count': _graph.number_of_nodes() if _graph else 0,
-            'graph_edge_count': _graph.number_of_edges() if _graph else 0,
-        }
+    """Metadata cho /version endpoint."""
+    return {
+        'graph_version':    _graph_version,
+        'graph_loaded_at':  None,
+        'graph_source':     _graph_source,
+        'graph_node_count': _graph.number_of_nodes(),
+        'graph_edge_count': _graph.number_of_edges(),
+    }
 
 
 # ---------------------------------------------------------------------------
-# Background refresh mỗi 5 phút
+# Main entry point
 # ---------------------------------------------------------------------------
-def _start_refresh(interval: int = 300):
-    def _worker():
-        while True:
-            time.sleep(interval)
-            try:
-                _load_all()
-            except Exception as e:
-                logger.error(f'Background graph reload failed: {e}')
-    t = threading.Thread(target=_worker, daemon=True, name='graph-refresh')
-    t.start()
 
-
-# Initial load
-_load_all()
-_start_refresh(300)
-
-
-# ---------------------------------------------------------------------------
-# Main pipeline
-# ---------------------------------------------------------------------------
-def process_batch(alerts: list[dict]) -> dict:
+def process_batch(alerts: list[dict], gap_sec: int = 120, max_hop: int = 2) -> dict:
     """
-    3-layer pipeline:
-      L1: correlate()    — gom alerts thành clusters (từ d1)
-      L2: rca_combined() — graph scoring (từ d2)
-      L3: Groq LLM       — enrichment + classify (từ d2, với fallback)
+    Flow:
+      1. correlate(alerts, GRAPH, gap_sec, max_hop) → list[cluster]
+      2. Nếu rỗng → return early với root_cause unknown
+      3. Pick cluster lớn nhất (alert_count) làm primary incident
+      4. run_rca(primary, GRAPH, HISTORY) → dict (root_cause, confidence, actions, reasoning, similar_incidents)
+      5. Pack lại thành dict matching IncidentResponse schema
     """
-    with _lock:
-        graph   = _graph
-        history = _history
-
-    # ── L1: Correlate ──────────────────────────────────────────────────────
-    clusters = correlate(alerts, graph, gap_sec=120, max_hop=2)
+    clusters = correlate(alerts, _graph, gap_sec=gap_sec, max_hop=max_hop)
 
     if not clusters:
         return {
@@ -114,45 +57,43 @@ def process_batch(alerts: list[dict]) -> dict:
             'root_cause': {
                 'service':    'unknown',
                 'confidence': 0.0,
-                'reasoning':  'No clusters formed — alerts may be too sparse or unrelated.',
+                'reasoning':  'No clusters formed from input alerts.',
             },
-            'recommended_actions': ['Check individual service logs', 'Verify alert thresholds'],
-            'similar_incidents':   [],
+            'recommended_actions': ['Investigate manually'],
+            'similar_incidents': [],
         }
 
-    # Primary cluster = lớn nhất
     primary = max(clusters, key=lambda c: c['alert_count'])
 
-    # ── L2 + L3: RCA ───────────────────────────────────────────────────────
-    rca_result = run_rca(primary, graph, history)
+    rca_result = run_rca(primary, _graph, _history)
 
-    # Build similar_incidents output
-    hist_map     = {inc['id']: inc for inc in history['incidents']}
-    similar_out  = []
-    for inc_id in rca_result.get('similar_incidents', [])[:3]:
-        if inc_id in hist_map:
-            inc = hist_map[inc_id]
+    cluster_summaries = [
+        {
+            'cluster_id':  c['cluster_id'],
+            'alert_count': c['alert_count'],
+            'services':    c['services'],
+            'time_range':  c['time_range'],
+        }
+        for c in clusters
+    ]
+
+    similar_out = []
+    for inc_id in rca_result.get('similar_incidents', []):
+        inc = next((i for i in _history['incidents'] if i['id'] == inc_id), None)
+        if inc:
             similar_out.append({
-                'id':         inc_id,
-                'similarity': 0.75,
-                'summary':    inc.get('summary', ''),
+                'id':         inc['id'],
+                'similarity': 1.0,
+                'summary':    inc['summary'],
             })
 
     return {
-        'clusters': [
-            {
-                'cluster_id':  c['cluster_id'],
-                'alert_count': c['alert_count'],
-                'services':    c['services'],
-                'time_range':  c['time_range'],
-            }
-            for c in clusters
-        ],
+        'clusters': cluster_summaries,
         'root_cause': {
-            'service':    rca_result.get('root_cause', 'unknown'),
+            'service':    rca_result.get('root_cause', primary['services'][0]),
             'confidence': rca_result.get('confidence', 0.0),
             'reasoning':  rca_result.get('reasoning', ''),
         },
         'recommended_actions': rca_result.get('actions', []),
-        'similar_incidents':   similar_out,
+        'similar_incidents': similar_out,
     }

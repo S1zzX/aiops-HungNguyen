@@ -1,0 +1,1 @@
+﻿{"alerts":[{"id":"a1","ts":"2026-06-12T09:42:01Z","service":"payment-svc","metric":"latency_p99_ms","severity":"crit","value":1840,"threshold":800},{"id":"a2","ts":"2026-06-12T09:42:15Z","service":"checkout-svc","metric":"error_rate","severity":"crit","value":50,"threshold":5}]}

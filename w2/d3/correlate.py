@@ -35,6 +35,27 @@ def build_graph_from_file(path: str) -> tuple[nx.DiGraph, dict]:
     return build_graph(svc_data), svc_data
 
 
+def build_graph_from_json(path: str) -> nx.DiGraph:
+    """
+    Generic graph loader — chấp nhận format đơn giản {services:[{id}], edges:[{src,dst}]}
+    (dùng trong unit test) lẫn format services.json đầy đủ (services/stores/edges với from/to).
+    Trả về chỉ graph (không kèm raw data) — dùng cho test_correlate.py.
+    """
+    data = json.loads(Path(path).read_text(encoding='utf-8'))
+
+    g = nx.DiGraph()
+    for svc in data.get('services', []):
+        name = svc.get('name') or svc.get('id')
+        g.add_node(name)
+    for store in data.get('stores', []):
+        g.add_node(store.get('name') or store.get('id'))
+    for edge in data.get('edges', []):
+        src = edge.get('from') or edge.get('src')
+        dst = edge.get('to') or edge.get('dst')
+        g.add_edge(src, dst, type=edge.get('type', 'call'))
+    return g
+
+
 # ---------------------------------------------------------------------------
 # Core functions — copy nguyên xi từ notebook d1
 # ---------------------------------------------------------------------------

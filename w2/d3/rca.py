@@ -203,6 +203,14 @@ def call_groq_rca(prompt: str) -> dict:
     return result
 
 
+def call_llm_rca(prompt: str) -> dict:
+    """
+    Entry point dùng bởi run_rca() và mock trong test (patch('rca.call_llm_rca')).
+    Wrap call_groq_rca — giữ tên generic để không khoá vào 1 provider.
+    """
+    return call_groq_rca(prompt)
+
+
 # ---------------------------------------------------------------------------
 # Classify + validate — copy từ notebook d2
 # ---------------------------------------------------------------------------
@@ -298,7 +306,7 @@ def run_rca(cluster: dict, G: nx.DiGraph, history: dict) -> dict:
 
     try:
         prompt  = build_rca_prompt(cluster, graph_top3, similar)
-        llm_out = call_groq_rca(prompt)
+        llm_out = call_llm_rca(prompt)
 
         result = {
             'cluster_id':        cluster['cluster_id'],
