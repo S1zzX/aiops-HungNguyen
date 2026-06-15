@@ -20,7 +20,7 @@ services:
     sli:
       name: api_availability
       kind: availability
-      formula: "count(status NOT IN 5xx,429 AND latency_ms < 500) / count(all requests)"
+      formula: "count(status NOT IN 5xx,429) / count(all requests)"
       promql_good: 'sum(rate(http_requests_total{status!~"5..|429"}[5m]))'
       promql_total: 'sum(rate(http_requests_total[5m]))'
       source: data/access_log.jsonl
