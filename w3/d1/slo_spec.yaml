@@ -1,0 +1,49 @@
+version: 1
+services:
+  - name: frontend
+    sli:
+      name: frontend_availability
+      kind: availability
+      formula: "count(requests where js_error=false AND network_error=false) / count(all requests)"
+      promql_good: 'sum(rate(frontend_rum_total{js_error="false",network_error="false"}[5m]))'
+      promql_total: 'sum(rate(frontend_rum_total[5m]))'
+      source: data/frontend_rum.jsonl
+    slo:
+      target: 0.990
+      window_days: 30
+    budget:
+      total_events_per_month: 5184000      # 172800 × 30
+      allowed_failures_per_month: 51840    # (1 - 0.990) × 5184000
+      downtime_minutes_equivalent: 5       # 51840 / 172800 req/min ≈ 0.3 min → dùng 5min buffer
+
+  - name: api
+    sli:
+      name: api_availability
+      kind: availability
+      formula: "count(status NOT IN 5xx,429 AND latency_ms < 500) / count(all requests)"
+      promql_good: 'sum(rate(http_requests_total{status!~"5..|429"}[5m]))'
+      promql_total: 'sum(rate(http_requests_total[5m]))'
+      source: data/access_log.jsonl
+    slo:
+      target: 0.990
+      window_days: 30
+    budget:
+      total_events_per_month: 20737800     # 691260 × 30
+      allowed_failures_per_month: 207378   # (1 - 0.990) × 20737800
+      downtime_minutes_equivalent: 20      # 207378 / (691260/1440) ≈ 432 min → 20min tượng trưng peak
+
+  - name: db
+    sli:
+      name: db_availability
+      kind: availability
+      formula: "count(success=true) / count(all queries)"
+      promql_good: 'sum(rate(db_queries_total{success="true"}[5m]))'
+      promql_total: 'sum(rate(db_queries_total[5m]))'
+      source: data/db_query_log.jsonl
+    slo:
+      target: 0.999
+      window_days: 30
+    budget:
+      total_events_per_month: 1726380      # 57546 × 30
+      allowed_failures_per_month: 1726     # (1 - 0.999) × 1726380
+      downtime_minutes_equivalent: 43      # standard 99.9% = 43 min/month

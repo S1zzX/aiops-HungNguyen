@@ -1,0 +1,63 @@
+groups:
+- name: api-slo
+  rules:
+  - alert: api_burn_rate_tier1
+    expr: |
+      (sum(rate(http_requests_fail_total[10m])) / sum(rate(http_requests_total[10m]))) / (1 - 0.990) >= 5
+      AND
+      (sum(rate(http_requests_fail_total[5m])) / sum(rate(http_requests_total[5m]))) / (1 - 0.990) >= 5
+    labels: {severity: page, tier: "1"}
+  - alert: api_burn_rate_tier2
+    expr: |
+      (sum(rate(http_requests_fail_total[6h])) / sum(rate(http_requests_total[6h]))) / (1 - 0.990) >= 2
+      AND
+      (sum(rate(http_requests_fail_total[5m])) / sum(rate(http_requests_total[5m]))) / (1 - 0.990) >= 2
+    labels: {severity: page, tier: "2"}
+  - alert: api_burn_rate_tier3
+    expr: |
+      (sum(rate(http_requests_fail_total[3d])) / sum(rate(http_requests_total[3d]))) / (1 - 0.990) >= 1
+      AND
+      (sum(rate(http_requests_fail_total[6h])) / sum(rate(http_requests_total[6h]))) / (1 - 0.990) >= 1
+    labels: {severity: ticket, tier: "3"}
+
+- name: db-slo
+  rules:
+  - alert: db_burn_rate_tier1
+    expr: |
+      (sum(rate(db_queries_fail_total[10m])) / sum(rate(db_queries_total[10m]))) / (1 - 0.999) >= 5
+      AND
+      (sum(rate(db_queries_fail_total[5m])) / sum(rate(db_queries_total[5m]))) / (1 - 0.999) >= 5
+    labels: {severity: page, tier: "1"}
+  - alert: db_burn_rate_tier2
+    expr: |
+      (sum(rate(db_queries_fail_total[6h])) / sum(rate(db_queries_total[6h]))) / (1 - 0.999) >= 2
+      AND
+      (sum(rate(db_queries_fail_total[5m])) / sum(rate(db_queries_total[5m]))) / (1 - 0.999) >= 2
+    labels: {severity: page, tier: "2"}
+  - alert: db_burn_rate_tier3
+    expr: |
+      (sum(rate(db_queries_fail_total[3d])) / sum(rate(db_queries_total[3d]))) / (1 - 0.999) >= 1
+      AND
+      (sum(rate(db_queries_fail_total[6h])) / sum(rate(db_queries_total[6h]))) / (1 - 0.999) >= 1
+    labels: {severity: ticket, tier: "3"}
+
+- name: frontend-slo
+  rules:
+  - alert: frontend_burn_rate_tier1
+    expr: |
+      (sum(rate(frontend_errors_total[10m])) / sum(rate(frontend_rum_total[10m]))) / (1 - 0.990) >= 5
+      AND
+      (sum(rate(frontend_errors_total[5m])) / sum(rate(frontend_rum_total[5m]))) / (1 - 0.990) >= 5
+    labels: {severity: page, tier: "1"}
+  - alert: frontend_burn_rate_tier2
+    expr: |
+      (sum(rate(frontend_errors_total[6h])) / sum(rate(frontend_rum_total[6h]))) / (1 - 0.990) >= 2
+      AND
+      (sum(rate(frontend_errors_total[5m])) / sum(rate(frontend_rum_total[5m]))) / (1 - 0.990) >= 2
+    labels: {severity: page, tier: "2"}
+  - alert: frontend_burn_rate_tier3
+    expr: |
+      (sum(rate(frontend_errors_total[3d])) / sum(rate(frontend_rum_total[3d]))) / (1 - 0.990) >= 1
+      AND
+      (sum(rate(frontend_errors_total[6h])) / sum(rate(frontend_rum_total[6h]))) / (1 - 0.990) >= 1
+    labels: {severity: ticket, tier: "3"}
