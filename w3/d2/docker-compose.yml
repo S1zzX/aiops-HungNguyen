@@ -1,0 +1,198 @@
+version: "3.9"
+
+networks:
+  aiops-net:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+services:
+
+  # ── 1. frontend ──────────────────────────────────────────────
+  frontend:
+    build: ./services/frontend
+    container_name: frontend
+    ports:
+      - "8080:8080"
+    environment:
+      - API_GATEWAY_URL=http://api-gateway:8081
+    depends_on:
+      - api-gateway
+    networks:
+      - aiops-net
+
+  # ── 2. api-gateway ───────────────────────────────────────────
+  api-gateway:
+    build: ./services/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8081:8081"
+    environment:
+      - PAYMENT_URL=http://payment-svc:8082
+      - INVENTORY_URL=http://inventory-svc:8083
+      - CHECKOUT_URL=http://checkout-svc:8084
+      - AUTH_URL=http://auth-svc:8085
+      - NOTIFICATION_URL=http://notification-svc:8086
+    depends_on:
+      - payment-svc
+      - inventory-svc
+      - checkout-svc
+      - auth-svc
+      - notification-svc
+    networks:
+      - aiops-net
+
+  # ── 3. payment-svc ───────────────────────────────────────────
+  payment-svc:
+    build: ./services/payment-svc
+    container_name: payment-svc
+    ports:
+      - "8082:8082"
+    environment:
+      - DB_URL=http://payment-db:5432
+    depends_on:
+      - payment-db
+    networks:
+      - aiops-net
+
+  # ── 4. inventory-svc ─────────────────────────────────────────
+  inventory-svc:
+    build: ./services/inventory-svc
+    container_name: inventory-svc
+    ports:
+      - "8083:8083"
+    environment:
+      - DB_URL=http://inventory-db:5433
+    depends_on:
+      - inventory-db
+    networks:
+      - aiops-net
+
+  # ── 5. checkout-svc ──────────────────────────────────────────
+  checkout-svc:
+    build: ./services/checkout-svc
+    container_name: checkout-svc
+    ports:
+      - "8084:8084"
+    environment:
+      - PAYMENT_URL=http://payment-svc:8082
+      - INVENTORY_URL=http://inventory-svc:8083
+    depends_on:
+      - payment-svc
+      - inventory-svc
+    networks:
+      - aiops-net
+
+  # ── 6. auth-svc ──────────────────────────────────────────────
+  auth-svc:
+    build: ./services/auth-svc
+    container_name: auth-svc
+    ports:
+      - "8085:8085"
+    networks:
+      - aiops-net
+
+  # ── 7. notification-svc ──────────────────────────────────────
+  notification-svc:
+    build: ./services/notification-svc
+    container_name: notification-svc
+    ports:
+      - "8086:8086"
+    networks:
+      - aiops-net
+
+  # ── 8. log-collector ─────────────────────────────────────────
+  log-collector:
+    build: ./services/log-collector
+    container_name: log-collector
+    ports:
+      - "8087:8087"
+    networks:
+      - aiops-net
+
+  # ── 9. dns-resolver ──────────────────────────────────────────
+  dns-resolver:
+    build: ./services/dns-resolver
+    container_name: dns-resolver
+    ports:
+      - "8088:8088"
+    networks:
+      - aiops-net
+
+  # ── 10. cache-svc ────────────────────────────────────────────
+  cache-svc:
+    image: redis:7-alpine
+    container_name: cache-svc
+    ports:
+      - "6379:6379"
+    networks:
+      - aiops-net
+
+  # ── 11. payment-db ───────────────────────────────────────────
+  payment-db:
+    image: postgres:15-alpine
+    container_name: payment-db
+    environment:
+      - POSTGRES_DB=payment
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    networks:
+      - aiops-net
+
+  # ── 12. inventory-db ─────────────────────────────────────────
+  inventory-db:
+    image: postgres:15-alpine
+    container_name: inventory-db
+    environment:
+      - POSTGRES_DB=inventory
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5433:5433"
+    command: -p 5433
+    networks:
+      - aiops-net
+
+  # ── 13. AIOps pipeline ───────────────────────────────────────
+  aiops-pipeline:
+    build: ./pipeline/aiops
+    container_name: aiops-pipeline
+    ports:
+      - "8000:8000"
+    environment:
+      - PROMETHEUS_URL=http://prometheus:9090
+    depends_on:
+      - prometheus
+    networks:
+      - aiops-net
+
+  # ── 14. Prometheus ───────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus_targets.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - aiops-net
+
+  # ── 15. Grafana ──────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - aiops-net

@@ -1,0 +1,274 @@
+[
+  {
+    "id": 1,
+    "name": "payment_latency",
+    "detected": true,
+    "mttd": 28,
+    "rca_service": "payment-svc",
+    "rca_correct": true,
+    "observed_at_ts": 1781599030,
+    "raw": {
+      "alerts": [
+        {
+          "service": "payment-svc",
+          "fault_class": "latency",
+          "severity": "warning",
+          "fire_ts": 1781599058
+        }
+      ],
+      "rca": {
+        "root_service": "payment-svc",
+        "confidence": 0.7,
+        "evidence": [
+          "payment-svc: latency at ts=1781599058"
+        ],
+        "reasoning": "Topology-aware RCA: traced alert chain upstream to payment-svc"
+      },
+      "mttd_seconds": 28,
+      "detected": true
+    }
+  },
+  {
+    "id": 2,
+    "name": "payment_network_loss",
+    "detected": true,
+    "mttd": 35,
+    "rca_service": "payment-svc",
+    "rca_correct": true,
+    "observed_at_ts": 1781599096,
+    "raw": {
+      "alerts": [
+        {
+          "service": "payment-svc",
+          "fault_class": "network_loss",
+          "severity": "warning",
+          "fire_ts": 1781599131
+        }
+      ],
+      "rca": {
+        "root_service": "payment-svc",
+        "confidence": 0.7,
+        "evidence": [
+          "payment-svc: network_loss at ts=1781599131"
+        ],
+        "reasoning": "Topology-aware RCA: traced alert chain upstream to payment-svc"
+      },
+      "mttd_seconds": 35,
+      "detected": true
+    }
+  },
+  {
+    "id": 3,
+    "name": "inventory_pod_kill",
+    "detected": true,
+    "mttd": 12,
+    "rca_service": "inventory-svc",
+    "rca_correct": true,
+    "observed_at_ts": 1781599161,
+    "raw": {
+      "alerts": [
+        {
+          "service": "inventory-svc",
+          "fault_class": "availability",
+          "severity": "warning",
+          "fire_ts": 1781599173
+        }
+      ],
+      "rca": {
+        "root_service": "inventory-svc",
+        "confidence": 0.7,
+        "evidence": [
+          "inventory-svc: availability at ts=1781599173"
+        ],
+        "reasoning": "Topology-aware RCA: traced alert chain upstream to inventory-svc"
+      },
+      "mttd_seconds": 12,
+      "detected": true
+    }
+  },
+  {
+    "id": 4,
+    "name": "apigateway_cpu_stress",
+    "detected": true,
+    "mttd": 42,
+    "rca_service": "api-gateway",
+    "rca_correct": true,
+    "observed_at_ts": 1781599167,
+    "raw": {
+      "alerts": [
+        {
+          "service": "api-gateway",
+          "fault_class": "cpu_saturation",
+          "severity": "warning",
+          "fire_ts": 1781599209
+        }
+      ],
+      "rca": {
+        "root_service": "api-gateway",
+        "confidence": 0.7,
+        "evidence": [
+          "api-gateway: cpu_saturation at ts=1781599209"
+        ],
+        "reasoning": "Topology-aware RCA: traced alert chain upstream to api-gateway"
+      },
+      "mttd_seconds": 42,
+      "detected": true
+    }
+  },
+  {
+    "id": 5,
+    "name": "paymentdb_memory_fill",
+    "detected": true,
+    "mttd": 55,
+    "rca_service": "payment-db",
+    "rca_correct": true,
+    "observed_at_ts": 1781599173,
+    "raw": {
+      "alerts": [
+        {
+          "service": "payment-db",
+          "fault_class": "memory",
+          "severity": "warning",
+          "fire_ts": 1781599228
+        }
+      ],
+      "rca": {
+        "root_service": "payment-db",
+        "confidence": 0.7,
+        "evidence": [
+          "payment-db: memory at ts=1781599228"
+        ],
+        "reasoning": "Topology-aware RCA: traced alert chain upstream to payment-db"
+      },
+      "mttd_seconds": 55,
+      "detected": true
+    }
+  },
+  {
+    "id": 6,
+    "name": "authsvc_clock_skew",
+    "detected": true,
+    "mttd": 30,
+    "rca_service": "auth-svc",
+    "rca_correct": true,
+    "observed_at_ts": 1781599178,
+    "raw": {
+      "alerts": [
+        {
+          "service": "auth-svc",
+          "fault_class": "time_skew",
+          "severity": "warning",
+          "fire_ts": 1781599208
+        }
+      ],
+      "rca": {
+        "root_service": "auth-svc",
+        "confidence": 0.7,
+        "evidence": [
+          "auth-svc: time_skew at ts=1781599208"
+        ],
+        "reasoning": "Topology-aware RCA: traced alert chain upstream to auth-svc"
+      },
+      "mttd_seconds": 30,
+      "detected": true
+    }
+  },
+  {
+    "id": 7,
+    "name": "logcollector_disk_fill",
+    "detected": false,
+    "mttd": null,
+    "rca_service": null,
+    "rca_correct": false,
+    "observed_at_ts": 1781599243,
+    "raw": {
+      "alerts": [],
+      "rca": {
+        "root_service": null,
+        "confidence": 0.0,
+        "evidence": [],
+        "reasoning": "No alerts in window"
+      },
+      "mttd_seconds": null,
+      "detected": false
+    }
+  },
+  {
+    "id": 8,
+    "name": "gateway_network_partition",
+    "detected": true,
+    "mttd": 15,
+    "rca_service": "api-gateway",
+    "rca_correct": true,
+    "observed_at_ts": 1781599248,
+    "raw": {
+      "alerts": [
+        {
+          "service": "api-gateway",
+          "fault_class": "network_partition",
+          "severity": "warning",
+          "fire_ts": 1781599263
+        }
+      ],
+      "rca": {
+        "root_service": "api-gateway",
+        "confidence": 0.7,
+        "evidence": [
+          "api-gateway: network_partition at ts=1781599263"
+        ],
+        "reasoning": "Topology-aware RCA: traced alert chain upstream to api-gateway"
+      },
+      "mttd_seconds": 15,
+      "detected": true
+    }
+  },
+  {
+    "id": 9,
+    "name": "dns_slow_lookup",
+    "detected": false,
+    "mttd": null,
+    "rca_service": null,
+    "rca_correct": false,
+    "observed_at_ts": 1781599283,
+    "raw": {
+      "alerts": [],
+      "rca": {
+        "root_service": null,
+        "confidence": 0.0,
+        "evidence": [],
+        "reasoning": "No alerts in window"
+      },
+      "mttd_seconds": null,
+      "detected": false
+    }
+  },
+  {
+    "id": 10,
+    "name": "checkout_retry_storm",
+    "detected": true,
+    "mttd": 20,
+    "rca_service": "checkout-svc",
+    "rca_correct": false,
+    "observed_at_ts": 1781599349,
+    "raw": {
+      "alerts": [
+        {
+          "service": "checkout-svc",
+          "fault_class": "http_error",
+          "severity": "warning",
+          "fire_ts": 1781599369
+        }
+      ],
+      "rca": {
+        "root_service": "checkout-svc",
+        "confidence": 0.7,
+        "evidence": [
+          "checkout-svc: http_error at ts=1781599369"
+        ],
+        "reasoning": "Topology-aware RCA: traced alert chain upstream to checkout-svc"
+      },
+      "mttd_seconds": 20,
+      "detected": true
+    }
+  }
+]
