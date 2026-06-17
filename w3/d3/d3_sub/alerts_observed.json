@@ -1,0 +1,14 @@
+[
+  {
+    "service": "api-gateway",
+    "fault_class": "cpu_saturation",
+    "severity": "critical",
+    "fire_ts": 1781682881
+  },
+  {
+    "service": "frontend",
+    "fault_class": "cascade_latency",
+    "severity": "warning",
+    "fire_ts": 1781682883
+  }
+]

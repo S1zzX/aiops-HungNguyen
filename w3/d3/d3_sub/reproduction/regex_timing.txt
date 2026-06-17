@@ -1,0 +1,12 @@
+Regex catastrophic-backtracking timing (measured, Python 3.11 re engine)
+Pattern: (?:(?:"|\d|.*)+(?:.*=.*))   [from pack: reproduction_templates/cloudflare_regex_2019/app/main.py]
+Input: 'x' * n  (no trailing '=' char -> engine must exhaust all .* splits searching for '=')
+
+n=20 chars -> 0.1295s
+n=25 chars -> 4.1655s   (32x increase for +5 chars -> confirms exponential/catastrophic backtracking)
+n=30 chars -> >25s (timed out)
+
+Baseline (regex OFF, /healthz):        ~0.007s - 0.017s
+Baseline (regex ON, empty query):      ~0.002s - 0.017s  (too short to trigger blowup)
+Baseline (regex ON, n=20-50, WITH trailing '='): all <0.003s (trailing '=' lets engine match early, no backtrack explosion)
+Baseline (regex ON, n=20-25, NO trailing '='):   0.13s -> 4.17s -> >25s (confirmed exponential)
