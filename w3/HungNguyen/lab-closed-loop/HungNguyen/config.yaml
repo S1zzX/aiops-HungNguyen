@@ -1,0 +1,83 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Orchestrator configuration — closed_loop.py reads this at startup.
+# Author: HungNguyen
+# ─────────────────────────────────────────────────────────────────────────────
+
+alertmanager_url: "http://localhost:9093"
+prometheus_url:   "http://localhost:9090"
+poll_interval_seconds:   15
+runbook_timeout_seconds: 30
+
+# Path to baseline JSON, relative to this config file
+baseline_path: "../HungNguyen/data/baseline.json"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Runbook registry — ONLY scripts in this list may be executed.
+# This is the hallucination / bad-decision defense (Scenario 6).
+# Any runbook resolved by the decision engine that is NOT in this list
+# will be rejected with event DECISION_VALIDATION_FAILED.
+# ─────────────────────────────────────────────────────────────────────────────
+runbook_registry:
+  - "runbooks/restart_service.sh"
+  - "runbooks/scale_replicas.sh"
+  - "runbooks/clear_cache.sh"
+  - "runbooks/multi_step_deploy.sh"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rule-based decision engine (Option A)
+# Maps alert name → runbook script path (relative to this config file)
+# ─────────────────────────────────────────────────────────────────────────────
+runbook_map:
+  HighLatency:     "runbooks/restart_service.sh"
+  HighErrorRate:   "runbooks/clear_cache.sh"
+  InstanceDown:    "runbooks/restart_service.sh"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Rollback map — script used to roll back a failed action.
+# Defaults to the same script as runbook_map if an alert is not listed here.
+# ─────────────────────────────────────────────────────────────────────────────
+rollback_map:
+  HighLatency:     "runbooks/restart_service.sh"
+  HighErrorRate:   "runbooks/restart_service.sh"
+  InstanceDown:    "runbooks/restart_service.sh"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Blast-radius limits (sub-checkpoint #2)
+# ─────────────────────────────────────────────────────────────────────────────
+blast_radius:
+  # Total automated actions allowed across ALL services per minute.
+  # Rationale: at 80k orders/day (~55/min) a 3-action/min cap means automation
+  # can handle burst incidents without cascading runbook storms.
+  max_actions_per_minute: 3
+
+  # Maximum restart actions per individual service per hour.
+  # Rationale: >5 restarts/hour on one service likely indicates a deeper issue
+  # that requires human escalation, not more automation.
+  max_restarts_per_service_per_hour: 5
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Circuit-breaker (sub-checkpoint #5)
+# ─────────────────────────────────────────────────────────────────────────────
+circuit_breaker:
+  # Halt automation after this many CONSECUTIVE verify failures per service.
+  consecutive_failure_threshold: 3
+  # reset_mode: "manual" — operator must restart closed_loop.py to reset.
+  # Rationale: after 3 consecutive failures the system is likely in an unknown
+  # state; a human must verify the situation before automation resumes.
+  reset_mode: manual
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Multi-step transactional deploy (Scenario 4)
+# Each entry is a list of [script_rel, *extra_args].
+# Steps execute in order (A→B→C); rollbacks execute in reverse (B-rollback→A-rollback).
+# ─────────────────────────────────────────────────────────────────────────────
+multi_step_map:
+  MultiStepDeploy:
+    - ["runbooks/multi_step_deploy.sh", "--step", "a"]
+    - ["runbooks/multi_step_deploy.sh", "--step", "b"]
+    - ["runbooks/multi_step_deploy.sh", "--step", "c"]
+
+multi_step_rollback_map:
+  MultiStepDeploy:
+    - ["runbooks/multi_step_deploy.sh", "--step", "rollback-a"]
+    - ["runbooks/multi_step_deploy.sh", "--step", "rollback-b"]

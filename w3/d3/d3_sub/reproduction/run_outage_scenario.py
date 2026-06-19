@@ -103,17 +103,18 @@ def main():
         print("WARNING: container did not become ready in 40s — continuing anyway.")
 
     # 3. First symptom — adversarial input pins CPU (no trailing '=' forces exponential backtracking)
-    #    n=20 chars measured ~0.13s, n=25 chars measured ~4.2s on this exact regex (see evidence/regex_timing.txt).
-    #    Use n=23 as a middle ground: long enough to clearly show degradation, short enough not to hang for minutes.
+    #    Measured on the pack's exact regex in a Linux sandbox: n=20 -> 0.13s, n=25 -> 4.17s (ratio ~2x/char).
+    #    n=23 sits right on the boundary and was observed NOT to blow up on a Windows run (CPU/Python-version
+    #    dependent). n=26 extrapolates to ~8s — clearly past the boundary, still comfortably inside timeout.
     log_event("scenario", "first user-visible symptom window begins")
-    adversarial_query = "x" * 23
+    adversarial_query = "x" * 26
     t_request_start = now_iso()
-    dt, code = probe_latency(f"{REPRO_URL}/?q={adversarial_query}", timeout=15.0)
-    log_event("probe", f"GET /?q=<23x> latency={dt*1000:.1f}ms status={code}", ts=t_request_start)
+    dt, code = probe_latency(f"{REPRO_URL}/?q={adversarial_query}", timeout=25.0)
+    log_event("probe", f"GET /?q=<26x> latency={dt*1000:.1f}ms status={code}", ts=t_request_start)
 
     # 4. Repeat probe — confirm sustained degradation
-    dt2, code2 = probe_latency(f"{REPRO_URL}/?q={adversarial_query}", timeout=15.0)
-    log_event("probe", f"GET /?q=<23x> repeat latency={dt2*1000:.1f}ms status={code2}")
+    dt2, code2 = probe_latency(f"{REPRO_URL}/?q={adversarial_query}", timeout=25.0)
+    log_event("probe", f"GET /?q=<26x> repeat latency={dt2*1000:.1f}ms status={code2}")
 
     fire_ts = int(time.time())
 

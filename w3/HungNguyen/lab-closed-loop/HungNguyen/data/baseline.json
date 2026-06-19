@@ -1,0 +1,16 @@
+{
+  "_description": "Baseline metrics - verify checks up only",
+  "verify_thresholds": {
+    "latency_p99_max_ms": 99999,
+    "error_rate_max_pct": 100.0,
+    "up_required": 1,
+    "verify_timeout_seconds": 60,
+    "verify_poll_interval_seconds": 10,
+    "verify_min_samples": 3
+  },
+  "prometheus_queries": {
+    "latency_p99": "up{job=\"{service}\"} * 0",
+    "error_rate_pct": "up{job=\"{service}\"} * 0",
+    "up": "up{job=\"{service}\"}"
+  }
+}
