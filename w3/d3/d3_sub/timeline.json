@@ -1,77 +1,77 @@
 [
   {
-    "ts": "2026-06-17T07:54:28+00:00",
+    "ts": "2026-06-20T10:50:45+00:00",
     "source": "scenario",
     "event": "baseline measurement starting \u2014 WAF rule not yet deployed"
   },
   {
-    "ts": "2026-06-17T07:54:28+00:00",
+    "ts": "2026-06-20T10:50:46+00:00",
     "source": "probe",
-    "event": "GET /healthz baseline latency=76.3ms status=200"
+    "event": "GET /healthz baseline latency=279.9ms status=200"
   },
   {
-    "ts": "2026-06-17T07:54:28+00:00",
+    "ts": "2026-06-20T10:50:46+00:00",
     "source": "scenario",
     "event": "deploy: new WAF rule pushed globally (no canary) \u2014 EVIL_REGEX_ACTIVE=1"
   },
   {
-    "ts": "2026-06-17T07:54:29+00:00",
+    "ts": "2026-06-20T10:50:48+00:00",
     "source": "docker",
     "event": "container recreated: api (EVIL_REGEX_ACTIVE=1)"
   },
   {
-    "ts": "2026-06-17T07:54:32+00:00",
+    "ts": "2026-06-20T10:50:57+00:00",
     "source": "scenario",
     "event": "first user-visible symptom window begins"
   },
   {
-    "ts": "2026-06-17T07:54:32+00:00",
+    "ts": "2026-06-20T10:50:57+00:00",
     "source": "probe",
-    "event": "GET /?q=<24x> latency=4134.5ms status=200"
+    "event": "GET /?q=<26x> latency=9834.1ms status=200"
   },
   {
-    "ts": "2026-06-17T07:54:41+00:00",
+    "ts": "2026-06-20T10:51:17+00:00",
     "source": "probe",
-    "event": "GET /?q=<24x> repeat latency=4150.3ms status=200"
+    "event": "GET /?q=<26x> repeat latency=10039.2ms status=200"
   },
   {
-    "ts": "2026-06-17T07:54:41+00:00",
+    "ts": "2026-06-20T10:51:17+00:00",
     "source": "monitor",
-    "event": "latency probe flags p99 breach (observed 4134ms vs 500ms SLO threshold)"
+    "event": "latency probe flags p99 breach (observed 9834ms vs 500ms SLO threshold)"
   },
   {
-    "ts": "2026-06-17T07:54:41+00:00",
+    "ts": "2026-06-20T10:51:17+00:00",
     "source": "pipeline",
-    "event": "ingested alert: {'service': 'api-gateway', 'fault_class': 'cpu_saturation', 'severity': 'critical', 'fire_ts': 1781682881} -> {'status': 'ingested', 'alert': {'service': 'api-gateway', 'fault_class': 'cpu_saturation', 'severity': 'critical', 'fire_ts': 1781682881}}"
+    "event": "ingested alert: {'service': 'api-gateway', 'fault_class': 'cpu_saturation', 'severity': 'critical', 'fire_ts': 1781952677} -> {'status': 'ingested', 'alert': {'service': 'api-gateway', 'fault_class': 'cpu_saturation', 'severity': 'critical', 'fire_ts': 1781952677}}"
   },
   {
-    "ts": "2026-06-17T07:54:41+00:00",
+    "ts": "2026-06-20T10:51:18+00:00",
     "source": "pipeline",
-    "event": "ingested alert: {'service': 'frontend', 'fault_class': 'cascade_latency', 'severity': 'warning', 'fire_ts': 1781682883} -> {'status': 'ingested', 'alert': {'service': 'frontend', 'fault_class': 'cascade_latency', 'severity': 'warning', 'fire_ts': 1781682883}}"
+    "event": "ingested alert: {'service': 'frontend', 'fault_class': 'cascade_latency', 'severity': 'warning', 'fire_ts': 1781952679} -> {'status': 'ingested', 'alert': {'service': 'frontend', 'fault_class': 'cascade_latency', 'severity': 'warning', 'fire_ts': 1781952679}}"
   },
   {
-    "ts": "2026-06-17T07:54:41+00:00",
+    "ts": "2026-06-20T10:51:18+00:00",
     "source": "scenario",
     "event": "querying pipeline /alerts and /rca for the incident window"
   },
   {
-    "ts": "2026-06-17T07:54:41+00:00",
+    "ts": "2026-06-20T10:51:22+00:00",
     "source": "pipeline",
     "event": "GET /alerts returned 2 alert(s)"
   },
   {
-    "ts": "2026-06-17T07:54:41+00:00",
+    "ts": "2026-06-20T10:51:22+00:00",
     "source": "pipeline",
     "event": "POST /rca returned root_service=api-gateway confidence=0.7"
   },
   {
-    "ts": "2026-06-17T07:54:42+00:00",
+    "ts": "2026-06-20T10:51:24+00:00",
     "source": "scenario",
     "event": "mitigation: WAF rule rolled back globally (EVIL_REGEX_ACTIVE=0)"
   },
   {
-    "ts": "2026-06-17T07:54:45+00:00",
+    "ts": "2026-06-20T10:51:31+00:00",
     "source": "probe",
-    "event": "GET /healthz post-rollback latency=32.1ms status=200 \u2014 recovery confirmed"
+    "event": "GET /healthz post-rollback latency=305.8ms status=200 \u2014 recovery confirmed"
   }
 ]

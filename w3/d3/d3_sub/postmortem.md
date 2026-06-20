@@ -1,4 +1,4 @@
-# Postmortem: Cloudflare WAF Regex — Catastrophic Backtracking Reproduction (2026-06-17)
+# Postmortem: Cloudflare WAF Regex — Catastrophic Backtracking Reproduction (2026-06-20)
 
 > Blameless wording — no "<person name> did X". See §2.1.
 
@@ -8,8 +8,8 @@ caused catastrophic backtracking on adversarial query strings. Requests matching
 the pattern pinned a CPU core for multiple seconds per request, and because the
 rule was pushed to all edge nodes simultaneously (no canary), every node was
 affected at once. The reproduction confirms the original Cloudflare 2019-07-02
-incident's failure mode: a 24-character adversarial input raised request latency
-from a 76ms baseline to over 4 seconds — a 54x increase — with no canary buffer
+incident's failure mode: a 26-character adversarial input raised request latency
+from a 280ms baseline to ~9,834ms — a 35× increase — with no canary buffer
 to limit blast radius.
 
 ## Impact
@@ -19,30 +19,30 @@ to limit blast radius.
   latency from waiting on `api-gateway`).
 - **Revenue/SLA impact:** not modeled in reproduction; see `cost_model.py` for the
   break-even framework that would apply to a real incident of this shape.
-- **Duration:** 2026-06-17 07:54:28 UTC (rule deployed) → 07:54:45 UTC (rollback
-  confirmed recovered) in the reproduction. Original incident: 2019-07-02
+- **Duration:** 2026-06-20 10:50:46 UTC (rule deployed) → 10:51:31 UTC (rollback
+  confirmed recovered) in the reproduction (~45 seconds). Original incident: 2019-07-02
   13:42–14:09 UTC, 27 minutes.
 
 ## Timeline (UTC)
-Pulled from `timeline.json` (15 events captured; reproduction run, not the original
-incident).
+Pulled from `timeline.json` (15 events captured; reproduction run 2026-06-20, not the
+original incident).
 
 | UTC | Event |
 |-----|-------|
-| 07:54:28 | Baseline measurement starts — WAF rule not yet deployed |
-| 07:54:28 | `GET /healthz` baseline latency = 76.3ms, status 200 |
-| 07:54:28 | Deploy triggered: new WAF rule pushed globally, no canary (`EVIL_REGEX_ACTIVE=1`) |
-| 07:54:29 | Container `api` recreated with rule active |
-| 07:54:32 | First user-visible symptom window begins |
-| 07:54:32 | `GET /?q=<24x>` latency = 4134.5ms, status 200 (request succeeds but is pinned) |
-| 07:54:41 | Repeat probe confirms sustained degradation: latency = 4150.3ms, status 200 |
-| 07:54:41 | Synthetic monitor flags p99 breach (4134ms observed vs. 500ms SLO threshold) |
-| 07:54:41 | Alert ingested into pipeline: `api-gateway`, `cpu_saturation`, severity critical |
-| 07:54:41 | Alert ingested into pipeline: `frontend`, `cascade_latency`, severity warning |
-| 07:54:41 | Pipeline queried: `/alerts` returns 2 alerts for the incident window |
-| 07:54:41 | Pipeline queried: `/rca` returns `root_service=api-gateway`, confidence 0.7 |
-| 07:54:42 | Mitigation applied: WAF rule rolled back globally (`EVIL_REGEX_ACTIVE=0`) |
-| 07:54:45 | `GET /healthz` post-rollback latency = 32.1ms, status 200 — recovery confirmed |
+| 10:50:45 | Baseline measurement starts — WAF rule not yet deployed |
+| 10:50:46 | `GET /healthz` baseline latency = 279.9ms, status 200 |
+| 10:50:46 | Deploy triggered: new WAF rule pushed globally, no canary (`EVIL_REGEX_ACTIVE=1`) |
+| 10:50:48 | Container `api` recreated with rule active |
+| 10:50:57 | First user-visible symptom window begins |
+| 10:50:57 | `GET /?q=<26x>` latency = 9,834ms, status 200 (request succeeds but CPU is pinned) |
+| 10:51:17 | Repeat probe confirms sustained degradation: latency = 10,039ms, status 200 |
+| 10:51:17 | Synthetic monitor flags p99 breach (9,834ms observed vs. 500ms SLO threshold) |
+| 10:51:17 | Alert ingested into pipeline: `api-gateway`, `cpu_saturation`, severity critical |
+| 10:51:18 | Alert ingested into pipeline: `frontend`, `cascade_latency`, severity warning |
+| 10:51:18 | Pipeline queried: `/alerts` returns 2 alerts for the incident window |
+| 10:51:22 | Pipeline queried: `/rca` returns `root_service=api-gateway`, confidence 0.7 |
+| 10:51:24 | Mitigation applied: WAF rule rolled back globally (`EVIL_REGEX_ACTIVE=0`) |
+| 10:51:31 | `GET /healthz` post-rollback latency = 305.8ms, status 200 — recovery confirmed |
 
 ## Root cause
 The WAF middleware evaluated every request's query string against a regular
@@ -71,9 +71,9 @@ rollout to absorb or limit the failure.
   hitting the service and reporting an SLO breach via `/ingest`. The AIOps
   pipeline itself has no native HTTP-latency probing capability — it depends
   entirely on alerts being pushed to it.
-- **MTTD:** In the reproduction, ~13 seconds from rule deployment (07:54:29) to
-  alert ingestion (07:54:41), bounded almost entirely by the deliberate pause
-  before the probe ran, not by the pipeline's own reaction time.
+- **MTTD:** In the reproduction, ~31 seconds from rule deployment (10:50:46) to
+  alert ingestion (10:51:17), dominated by the time the adversarial request took
+  to complete (~9.8s per request × 2 probes) rather than pipeline reaction time.
 - **Pipeline gaps observed during reproduction:**
   - Gap 1: The pipeline has no built-in synthetic monitoring or APM
     instrumentation — it is a pure ingest-and-analyze service. Detection
