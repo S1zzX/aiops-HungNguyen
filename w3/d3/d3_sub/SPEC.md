@@ -10,13 +10,22 @@ remediation, capacity planning, and cost forecasting beyond the break-even
 model in §6.
 
 ## 2. SLO definition (from W3-D1)
-- Target SLO: 99.5% successful, sub-500ms requests for `api-gateway` and
-  `checkout-svc` (the two services exercised in this week's reproduction).
-- SLI: HTTP request latency p99 < 500ms AND status code not in 5xx.
-- Error budget: 0.5% of monthly request volume (~3.6 hours of full-degradation
-  equivalent per 30-day month).
-- Burn-rate alert tiers: fast burn (budget exhausted in <2h → page immediately),
-  slow burn (budget exhausted in <7 days → ticket, review next business day).
+Source: `w3/d1/slo_spec.yaml` (version 1, 3 services, 30-day rolling window).
+
+| Service    | SLI kind     | SLO target | Monthly error budget (events) | Downtime equiv. |
+|------------|--------------|------------|-------------------------------|-----------------|
+| `frontend` | availability | 99.0%      | 51,840 bad events / 5,184,000 | ~5 min          |
+| `api`      | availability | 99.0%      | 207,378 bad events / 20,737,800 | ~20 min        |
+| `db`       | availability | 99.9%      | 1,726 bad events / 1,726,380  | ~43 min         |
+
+**SLI formulas:**
+- `frontend`: `count(requests where js_error=false AND network_error=false) / count(all requests)`
+- `api`: `count(status NOT IN 5xx, 429) / count(all requests)`
+- `db`: `count(success=true) / count(all queries)`
+
+**Burn-rate alert tiers** (derived from W3-D1, see `burn_rate_alerts.yaml`):
+- Fast burn: budget exhausted in < 2h → page immediately (SEV1).
+- Slow burn: budget exhausted in < 7 days → ticket, review next business day (SEV3).
 
 ## 3. Detection + Correlation + RCA stack (from W1+W2)
 - **Detector:** synthetic latency probing (external prober in this exercise;
@@ -35,14 +44,51 @@ model in §6.
   exists. Output schema: `{root_service, confidence, evidence, reasoning}`.
 
 ## 4. Reliability validation (from W3-D2)
-- Chaos run cadence: not yet established for this stack — recommend starting
-  at weekly, scoped to non-production, before promoting to a monthly
-  production-adjacent cadence.
-- Detected/total ratio target: 90% of injected faults should produce at least
-  one correctly-attributed alert within the SLO's fast-burn window.
-- Steady-state signal: synthetic probe (latency + status code), the same
-  mechanism used for detection in §3, doubling as the steady-state hypothesis
-  check before/after each chaos experiment.
+Source: `w3/d2/chaos_report.md` (10 experiments, 2026-06-16, stack: w3-d2-pack).
+
+**Scoreboard:**
+```
+Total: 10  |  Detected: 8/10  |  RCA correct: 7/8
+False alarms in baseline windows: 0
+Precision: 1.00  |  Recall: 0.80
+MTTD p50: 30s  |  MTTD p95: 55s
+```
+
+**Per-experiment summary:**
+
+| # | Fault | Detected | MTTD | RCA correct |
+|---|-------|----------|------|-------------|
+| 1 | payment_latency | Y | 28s | Y |
+| 2 | payment_network_loss | Y | 35s | Y |
+| 3 | inventory_pod_kill | Y | 12s | Y |
+| 4 | apigateway_cpu_stress | Y | 42s | Y |
+| 5 | paymentdb_memory_fill | Y | 55s | Y |
+| 6 | authsvc_clock_skew | Y | 30s | Y |
+| 7 | logcollector_disk_fill | **N** | — | N |
+| 8 | gateway_network_partition | Y | 15s | Y |
+| 9 | dns_slow_lookup | **N** | — | N |
+| 10 | checkout_retry_storm | Y | 20s | **N** |
+
+**Top 3 gaps:**
+
+1. **Infra-layer blind spot (exp 7, 9):** Disk fill on `log-collector` and DNS
+   latency on `dns-resolver` both produced zero alerts. The detector only scrapes
+   application-layer metrics (HTTP latency, error_rate, container availability)
+   and has no node_exporter/blackbox_exporter coverage for infra-tier metrics.
+   Fix: add node_exporter scraper for disk I/O + blackbox DNS probe.
+
+2. **Retry-storm RCA failure (exp 10):** Pipeline detected the fault correctly
+   but RCA returned `checkout-svc` (the symptom carrier) instead of the upstream
+   degraded service. Count-based ranking picks the highest-alert-count service,
+   which in a retry storm is always the downstream relay, not the root.
+   Fix: topology-aware RCA that deprioritizes downstream-only alert clusters
+   (see ADR-001 context and `pipeline/main.py` `_topology_rca()`).
+
+3. **Slow MTTD for resource-saturation faults (exp 4: 42s, exp 5: 55s):**
+   CPU and memory pressure build gradually; a fixed scrape interval means
+   the detector is 10–50s behind for slow-ramp faults. Fix: predictive
+   thresholding on rate-of-change + reduce scrape interval to 5s for critical
+   infra targets.
 
 ## 5. Operational pattern (from W3-D3)
 - Postmortem template: `postmortem.md` (Google SRE format, blameless wording
@@ -54,14 +100,35 @@ model in §6.
   during reproduction (see §5 below and `postmortem.md` Detection §Gap 1).
 
 ## 6. Cost model (from W3-D3)
-- Monthly cost (my scenario): $18,000/month for AIOps platform overhead.
-- Break-even avoided incidents/month: with 4 incidents/month at 1.5h average
-  duration and $15k/hour downtime cost, the platform returns ROI = 2.0
-  (`verdict: worth_it`), with payback in well under a month. See
-  `cost_model.py` Scenario 3 for the full input set and reasoning behind each
-  number.
-- See `cost_model.py` for the `is_worth_it()` implementation and three worked
-  scenarios (two from the course's §8.4 table, one original).
+Source: `w3/d3/d3_sub/cost_model.py` — `is_worth_it()` per W3-D3 §8.3 spec.
+
+**Stack scenario (Scenario 3 — mid-tier e-commerce checkout):**
+```
+Inputs:
+  num_services              = 60
+  incidents_per_month       = 4
+  avg_incident_duration_h   = 1.5
+  downtime_cost_per_hour    = $15,000   (mid-tier e-commerce, §8.2 band)
+  expected_mttr_reduction   = 40%
+  aiops_monthly_cost        = $18,000
+
+Output:
+  monthly_value   = 4 × 1.5 × 0.40 × $15,000 = $36,000
+  monthly_cost    = $18,000
+  roi             = 2.0
+  payback_months  = 0.5
+  verdict         = worth_it
+```
+
+**Break-even point:** 3 incidents/month × 1.5h at $15k/hour is the minimum
+threshold for this platform cost to return ROI ≥ 1.0. Below that (e.g.
+2 incidents/month), the platform is marginal and a better-tuned on-call
+rotation is the right investment first (see W3-D3 §8.5 — "When NOT to do
+AIOps").
+
+**Reference scenarios** (from §8.4 table):
+- 20 svc, 2 inc/mo × 1h, $10k/h → ROI = 0.53 → `not_worth_it`
+- 100 svc, 5 inc/mo × 2h, $20k/h → ROI = 3.2 → `worth_it`
 
 ## 7. Open risks
 - **Risk 1 (severity: high):** Detection currently depends entirely on

@@ -90,13 +90,39 @@ rollout to absorb or limit the failure.
     responsible code path or recently-deployed rule.
 
 ## Response
-- **First responder action (reproduction):** rollback executed by reverting
-  the WAF rule flag (`EVIL_REGEX_ACTIVE=0`) and recreating the service.
-- **Time to mitigate:** ~1 second from decision to rollback command issued
-  (07:54:41 → 07:54:42) in the reproduction.
-- **Time to fully resolve:** ~4 seconds from rollback command to confirmed
-  recovery (07:54:42 → 07:54:45), measured via `/healthz` returning to
-  baseline latency (32.1ms).
+**What went well:**
+- Mitigation was fast once the cause was understood: a single environment
+  variable flip (`EVIL_REGEX_ACTIVE=0`) + container recreate fully restored
+  service within ~4 seconds of rollback command.
+- The topology-aware RCA correctly identified `api-gateway` as the root
+  (not the downstream `frontend`), which pointed the responder at the right
+  service immediately.
+- The service itself did not crash — it remained alive and returned 200s
+  throughout — which meant rollback was a config change, not a full redeploy.
+
+**What went poorly:**
+- No native detection existed inside the pipeline: detection only happened
+  because an external prober was already running and wired to `/ingest`. A
+  deployment in a real environment without a pre-existing prober for every
+  route would have produced zero alerts, regardless of how long the
+  regression ran.
+- The rule-deploy pipeline had no staged rollout: a single command affected
+  100% of nodes simultaneously, turning a fixable bug into a global outage.
+- The RCA output was correct at the service level but could not identify
+  the specific cause (a regex deployed inside the middleware); a responder
+  would still need to manually inspect recent changes to `api-gateway`.
+
+**Where we got lucky:**
+- The adversarial input length that triggers catastrophic backtracking is
+  data-dependent: inputs with a trailing `=` character match early and take
+  < 3ms. In this reproduction the synthetic prober happened to use an
+  input without `=`, which made the failure immediately reproducible. In a
+  real deployment, a WAF team might test with "normal" traffic that never
+  hits the exponential branch — and deploy with false confidence.
+- Recovery time in the reproduction was measured in seconds because Docker
+  restarts a container almost instantly. In a production environment with
+  a managed edge network (CDN, WAF appliance), a global rule rollback can
+  take minutes to propagate to every PoP.
 
 ## Action items
 | # | Action | Owner | Type | ETA |
