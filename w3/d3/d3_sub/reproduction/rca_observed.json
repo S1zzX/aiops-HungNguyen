@@ -2,7 +2,7 @@
   "root_service": "api-gateway",
   "confidence": 0.7,
   "evidence": [
-    "api-gateway: cpu_saturation at ts=1781713516"
+    "api-gateway: cpu_saturation at ts=1781952677"
   ],
   "reasoning": "Topology-aware RCA: traced alert chain upstream to api-gateway"
 }

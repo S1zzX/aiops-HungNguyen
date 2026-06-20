@@ -3,12 +3,12 @@
     "service": "api-gateway",
     "fault_class": "cpu_saturation",
     "severity": "critical",
-    "fire_ts": 1781713516
+    "fire_ts": 1781952677
   },
   {
     "service": "frontend",
     "fault_class": "cascade_latency",
     "severity": "warning",
-    "fire_ts": 1781713518
+    "fire_ts": 1781952679
   }
 ]

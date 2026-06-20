@@ -7,4 +7,4 @@ services:
     command: sh -c "pip install -q fastapi uvicorn && uvicorn main:app --host 0.0.0.0 --port 8888"
     ports: ["8888:8888"]
     environment:
-      EVIL_REGEX_ACTIVE: "0"
+      EVIL_REGEX_ACTIVE: "${EVIL_REGEX_ACTIVE:-0}"
