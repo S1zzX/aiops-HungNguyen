@@ -1,80 +1,17 @@
-# W3-D3 Submission — HungNguyen
+# Reflection — Lab: Incident Forensics (30 Days, 5 Incidents)
 
-## Outage chosen
-- **ID:** 3
-- **Tên:** Cloudflare WAF Regex (2019-07-02)
-- **Lý do em chọn cái này:** Em muốn làm việc với một failure mode thuần code/data-dependent
-  thay vì infrastructure-dependent — một regex pattern trông hoàn toàn bình thường trên
-  phần lớn input nhưng lại chạy theo thời gian lũy thừa trên input adversarial. Đây là
-  loại bug dễ lọt qua review nhất và em có thể reproduce rẻ tiền ngay trên máy local,
-  không cần dựng multi-node network như case GitHub split-brain.
-- **Failure mode:** Catastrophic backtracking (regex), kết hợp với global atomic deploy
-  không có canary buffer — một mình cái regex đủ tệ, nhưng deploy toàn bộ edge cùng lúc
-  mới biến nó thành outage toàn cầu.
+## Which incident was hardest to diagnose, and why?
 
----
+I-4 (pp-api IP block rotation, 2026-03-22) was the most deceptive to diagnose. The symptom — elevated checkout error rates and payment retries — looked identical at the surface level to I-1 (connection pool saturation). The critical distinguishing step was noticing that alert A-302 was specifically `PaymentRegionalErrorRateHigh`, not a global metric. That clue directed attention to the per-AZ metrics and then to the traces, where the AZ-level tag and the `resolved_ip` field revealed the split: AZ-c resolved the old IP while AZ-a/b resolved the new one. Without that per-AZ granularity in the traces, the vendor IP rotation announcement in deploy_log would have remained an unconnected data point. The difficulty came not from complexity but from the deliberate red herrings embedded in the same timeframe — the security group egress rule change on 03-20 was a compelling alternative that required careful evidence to dismiss.
 
-## 3 thứ em học từ outage này
+## One hypothesis I initially considered and what changed my mind
 
-1. **Catastrophic backtracking là thật, không phải lý thuyết.** Em đo trực tiếp trên regex
-   của pack (`(?:(?:"|\d|.*)+(?:.*=.*))`): input 26 ký tự `x` không có dấu `=` cuối làm
-   request mất **9,834ms** (gần 10 giây), trong khi baseline bình thường chỉ ~280ms — tức
-   là tăng **35 lần**. Chạy thêm lần nữa vẫn cho 10,039ms. Cái số này không phải benchmark
-   trên paper, nó là output thực từ container em vừa chạy.
+For I-3, I initially suspected the RDS instance class upgrade (db.r6g.large → xlarge on 03-16) as the primary trigger for the 03-17 latency incident. The timing felt plausible — a major infrastructure change the day before. What changed my mind was checking the metrics timeline: `rds_query_p99_ms.csv` and `rds_cpu_pct.csv` were completely flat from 03-16 11:15 through 03-17 11:14. If the instance change had introduced instability (e.g., a corrupted page cache or statistics reset), it would have shown up within minutes of the change. The break at exactly 11:15 — coinciding to the minute with the `enable_loyalty_recommendations` flag activation — was too precise to be coincidence. The clincher was the trace, which carried `uses_index=false` and `rows_examined=180000` starting at 11:20.
 
-2. **RCA "đúng" theo logic nhưng vẫn có thể sai theo nghĩa thực tế.** Pipeline của em trả
-   về `root_service=api-gateway, confidence=0.7` — topology-aware, trace từ `frontend` lên
-   đúng service. Nhưng `api-gateway` là service *đang chạy* WAF middleware, không phải node
-   "WAF rule" hay "regex version" trong topology graph. Người on-call nhận được kết quả này
-   vẫn phải tự đi kiểm tra xem gần đây `api-gateway` có deploy gì không. Pipeline đúng ở
-   mức abstraction nó có, nhưng mức đó không đủ fine-grained cho incident class này.
+## The single most useful file in the data pack, and why
 
-3. **Detection của em chỉ hoạt động vì em tự viết prober.** Pipeline không có khả năng tự
-   phát hiện endpoint nào đó "từng nhanh giờ chậm" — nó hoàn toàn reactive, chỉ xử lý
-   alert được push vào `/ingest`. Nếu không có ai viết và chạy prober bên ngoài cho route
-   đó, outage này chạy bao lâu cũng không có alert nào cả. Đây là gap lớn hơn em tưởng
-   trước khi làm bài.
+`traces.json` was by far the most valuable file. While alerts.json narrowed the time windows and metrics csvs confirmed the magnitude of degradation, traces provided the only *causal* evidence: the specific error codes (`certificate_not_yet_valid`, `connection_refused`), the structured fields (`resolved_ip`, `validator_clock_skew_seconds`, `uses_index`, `rows_examined`), and the AZ-level tags that distinguished I-4's partial failure from a global outage. In every incident, the root cause was not identifiable from metrics alone — it required a trace span showing the exact operation and error at the deepest point in the call graph. Metrics tell you *something is wrong*; traces tell you *where and why*.
 
----
+## One blind spot in the data pack that would have shortened analysis
 
-## 1 thứ pipeline của em sẽ vẫn miss nếu outage này xảy ra real
-
-- **Pattern:** Bất kỳ silent-CPU-pin failure nào trên route mà chưa có ai đăng ký synthetic
-  prober.
-- **Tại sao miss:** Hai con đường detection duy nhất của pipeline là (a) có gì đó gọi
-  `/ingest` một cách tường minh, hoặc (b) Prometheus query trả về dữ liệu — mà cả hai đều
-  không tự kích hoạt chỉ vì một route trở nên chậm. Không có logic nào bên trong pipeline
-  kiểm tra "endpoint này trước đây response 280ms, bây giờ đang response 10,000ms."
-- **Mitigation idea:** ADR-001 — đưa synthetic latency probing vào trong pipeline như một
-  first-class component, so sánh với rolling baseline và tự gọi `/ingest` khi phát hiện
-  regression, thay vì phụ thuộc vào prober bên ngoài mà có thể có hoặc không có tùy route.
-
----
-
-## 1 quyết định trong ADR mà em không hoàn toàn chắc
-
-Trong ADR-001, em quyết định dùng "latency vượt baseline một bội số nhất định" làm trigger,
-nhưng em chưa chốt được bội số đó là bao nhiêu và baseline nên tính thế nào — rolling
-average? p50? p99 của N phút gần nhất? Nếu threshold quá chặt thì false-positive trên
-traffic variance bình thường; quá lỏng thì bắt regression chậm. Em nghĩ cần tune per-endpoint
-thay vì dùng global value, nhưng em chưa có data traffic thực để validate con số cụ thể nào.
-Đây là phần em muốn honest là chưa chắc, không muốn hardcode một số mà chưa đo được.
-
----
-
-## Cost model verdict cho stack của em
-
-| Chỉ số | Giá trị |
-|--------|---------|
-| ROI | **2.0** |
-| Payback | **0.5 tháng** |
-| Verdict | **worth_it** |
-
-Inputs em dùng cho Scenario 3 (mid-tier e-commerce checkout, 60 services):
-- 4 incidents/tháng × 1.5h avg × $15,000/h downtime × 40% MTTR reduction = $36,000 monthly value
-- AIOps cost: $18,000/tháng
-- ROI = 36,000 / 18,000 = 2.0 → `worth_it`
-
-Em chọn $15,000/h vì stack này nằm trong band "E-commerce mid-tier" ($5k–$50k/h theo §8.2),
-không nhỏ như hobby project nhưng cũng chưa đến Amazon-scale — anchor ở giữa-trên của band
-là hợp lý nhất với quy mô 60 services.
+The data pack contains no `logs/` directory. The HANDOUT describes structured per-service JSONL logs (`logs/{service}.jsonl`) with `component`, `msg`, and `extra` fields, but these files do not exist in the pack. For I-2 specifically, a log line from `inventory-svc` containing the actual Python traceback or a numpy deprecation warning would have immediately confirmed the memory leak source without requiring inference from the GC pause pattern in traces. For I-5, a log entry from the service-mesh controller with the cert issuance timestamp and `not_before` value would have cut the diagnosis time in half. Adding structured application logs — even at WARN/ERROR level only — would make the difference between 2-hour and 20-minute RCA cycles for memory and TLS class incidents.
